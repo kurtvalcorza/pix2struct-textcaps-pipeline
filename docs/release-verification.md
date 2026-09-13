@@ -116,7 +116,7 @@ they are measurements for the stated runtime, not general estimates.
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
-__LOCAL_ROW__
+| 2026-09-14 | notebook blob `2591c6272d77` (commit `faeb013`, generated at `6daa835`; `NOTEBOOK_SOURCE.repository_revision` = `6daa835…`) | Local Windows-venv harness (`run_nb_local.py`: nbclient 0.11.0, fresh `python3` kernel, `CUDA_VISIBLE_DEVICES=-1`, `DIMER_NOTEBOOK_CI_PREINSTALLED=1`), Python 3.12.10, torch 2.14.0+cu130, transformers 4.57.6 | Default synthetic path, all 8 code cells: pinned install skipped (pre-installed), `stage_missing_files` fetched all 8 manifest entries (1.13 GB) from the Hub cache at the pinned revision into the scratch `weights/`, `verify_snapshot` PASS (8 files), no font or other download in the log after staging, three `caption` calls → `A stop sign is on a pole.`, `A blue sign that says Blue Fern Bakery.`, `A blue shirt with the number 42 on it.` (9/11/13 tokens, none truncated, 2.87–2.99 s), `evaluation_report` `sample-sanity` (`text_recall` 0.75 = 1.0/0.75/0.5; `open` and `lions` missing — the recorded misses reproduced), scene digests `9432a2ba…` / `dd0853ce…` / `b1e4d658…` (Pillow 11.3.0 bundled font), 5 outputs written | 139.3 s | PASS — pre-flight only; not promotion evidence |
 
 ### Manual clean-runtime evidence
 
