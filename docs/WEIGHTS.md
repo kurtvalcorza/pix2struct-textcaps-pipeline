@@ -1,0 +1,11 @@
+# Weight provenance and DIMER hosting
+
+- Upstream: `google/pix2struct-textcaps-base`
+- Immutable revision: `61bee0d7e2378e601b68f853ceee4f7cf99f1b88` (the Hub's `main` resolved to this commit on 2026-09-14)
+- Weight format: SafeTensors (`model.safetensors`, 1,129,177,976 bytes, float32). The upstream repository also hosts `pytorch_model.bin` (1,129,238,081 bytes), a pickle checkpoint that DIMER does not accept and this pipeline neither lists nor loads.
+- Manifest: `weights/pix2struct-textcaps-base/dimer-base-manifest.json` (8 files: `README.md`, `config.json`, `model.safetensors`, `preprocessor_config.json`, `special_tokens_map.json`, `spiece.model`, `tokenizer.json`, `tokenizer_config.json`; 1,133,312,209 bytes total, per-file SHA-256)
+- Upstream weight license: Apache-2.0 (the checkpoint's `README.md` front matter and the Hub's licence tag)
+- DIMER hosting: Apache-2.0 permits use, modification, distribution, and commercial use subject to preservation of the licence and notices. The Git repository does not vendor the checkpoint (`weights/**/*.safetensors` is git-ignored); DIMER may mirror the pinned snapshot in its model store under the upstream license.
+- Fresh clone: `stage_missing_files(allow_download=True)` fetches only the manifest-listed files absent on disk, at the pinned revision, into the snapshot directory; `verify_snapshot()` then checks every file before any load. `weights/**` is marked `-text` in `.gitattributes` so Windows `core.autocrlf` cannot rewrite the committed small files and break their digests.
+- Loader trust boundary: Transformers `Pix2StructForConditionalGeneration` / `Pix2StructProcessor` with `trust_remote_code=False`, `local_files_only=True` from the verified directory; the tokenizer (`spiece.model`, `tokenizer.json`) comes from the same snapshot; nothing model-related is fetched at construction (the smoke run loaded and ran with `HF_HUB_OFFLINE=1`).
+- No header font is involved: the TextCaps image processor is not the VQA variant (`is_vqa` absent), so nothing is rendered into the image and no font is fetched; `from_pretrained` refuses a snapshot whose processor is the VQA variant. A conditional prefix is passed as decoder input ids, not rendered.
