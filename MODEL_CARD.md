@@ -2,6 +2,7 @@
 license: apache-2.0
 model_card_spec: "1.1"
 pipeline_tag: image-to-text
+task: "Others - Image Captioning (text-aware)"
 base_model: google/pix2struct-textcaps-base
 date_published: "2023-03-01"
 date_published_source: "Hugging Face Hub repository creation date of the exact hosted checkpoint (`createdAt` 2023-03-01T09:07:41Z, https://huggingface.co/api/models/google/pix2struct-textcaps-base — the Transformers-format conversion); the Pix2Struct paper and T5X checkpoints are from 2022-10 (arXiv:2210.03347), and the pinned revision is the Hub's `main` as of 2026-09-14"
