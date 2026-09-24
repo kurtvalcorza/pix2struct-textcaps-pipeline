@@ -131,8 +131,12 @@ they are measurements for the stated runtime, not general estimates.
 
 ### `E2E` notebook
 
-No execution of the `E2E` notebook is recorded yet. The rows below are the earlier inference-only notebook's runs;
-they are history and are **not** evidence for the `E2E` blob.
+| Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
+|---|---|---|---|---|---|
+| 2026-09-24 | `7eb0691` / `2b72c3f7773c` | Kaggle Tesla T4 (`kurtvalcorza/dimer-nb2-pix2struct-textcaps` v2; image `torch 2.10.0+cu128` / `transformers 5.0.0` before the pinned install, `torch 2.14.0+cu130` / `transformers 4.57.6` after, Python 3.12.13, `cuda:0`, float32) | Default sample path, `Run all` from a fresh interpreter with an empty Hugging Face cache and no repository checkout (blob SHA-1 verified against GitHub before execution) | 902.2 s | **PASSED** — 11/11 code cells ok (1 restart after install cell); 355 files, 1218 MB staged from the Hub into a clean cache; test CIDEr-D constant 0.052 / colour-neighbour 0.042 / frozen 0.309 / adapted 0.325, BLEU-4 0.096 → 0.099, ROUGE-L 0.329 → 0.364; by category `text` (40) 0.490 → 0.504, `no-text` (30) 0.068 → 0.086; validation CIDEr-D by epoch 0.219 / 0.237 / 0.261 / 0.264 / 0.275 (best epoch 4); adaptation 349.6 s; `adapted_beats_frozen` true; reload parity 8/8 identical captions; run summary and executed notebook archived under `.agent/backups/tier-b-pix2struct-2026-09-24/kaggle-out/dimer-nb2-pix2struct-textcaps/v2/evidence/` in the workspace |
+| 2026-09-24 | `4d8f3dc` / `2b72c3f7773c` (same blob) | Kaggle Tesla T4 script kernel (`kurtvalcorza/dimer-sweep-pix2struct-textcaps` v1; pinned runtime as above) — **pre-flight, not the promotion evidence** | full `pytest` suite on the GPU (real-checkpoint and CUDA cases), then the notebook's own code cells with the defaults, then Sections 7–8 re-run from the frozen model at `LEARNING_RATE` 2e-5 and 5e-5 | 2992.6 s | pytest exit 0; defaults reproduced the row above exactly (0.309 → 0.325); lr 2e-5 → 0.321 (`text` 0.503, `no-text` 0.078, best epoch 2); lr 5e-5 → 0.340 (`text` 0.484, `no-text` 0.148, best epoch 4) — the higher rate trades quoted text for the corpus's style, as anticipated; peak CUDA memory 6.7–7.9 GB in adaptation |
+
+The rows below are the earlier inference-only notebook's runs; they are history and are **not** evidence for the `E2E` blob.
 
 ### Superseded `TASK-INFERENCE` notebook — local pre-flight (not a supported runtime)
 
@@ -148,16 +152,13 @@ they are history and are **not** evidence for the `E2E` blob.
 
 ## Current status
 
-**Candidate.** No execution of the `E2E` notebook is recorded. What exists: static validation
-(`tools/validate_release_assets.py`), the generator parity checks (`--check` OK), the offline suites and the
-adaptation suite on a small random Pix2Struct. The Kaggle CPU and local runs above were of the earlier
-`TASK-INFERENCE` notebook, whose code path (staging, verification, captioning, the scene report) the `E2E` notebook
-still carries as Section 5, but they do not carry over to the new blob.
+**Release-grade** for blob `2b72c3f7` (committed at `7eb0691`): the clean Kaggle Tesla T4 run above is the evidence.
+Any later change to the carried modules or the notebook yields a new blob and returns the status to Candidate.
 
 Facts a reviewer should weigh before promotion: the fine-tuning recipe (`LEARNING_RATE = 1e-5`, four epochs, two
-blocks) is carried over from the BLIP captioning row and has not been run on this checkpoint, so the notebook
-records `adapted_beats_frozen` instead of asserting a gain — restore the assertion once a measured recipe is
-recorded here; `google/pix2struct-textcaps-base` was fine-tuned on TextCaps, whose captions quote the text in the
+blocks) was carried over from the BLIP captioning row and is now measured on this checkpoint (pre-flight row above):
+every recipe tried beat the frozen model, but by +0.012 to +0.031 CIDEr-D on 70 photographs with one seed, so the
+notebook keeps recording `adapted_beats_frozen` instead of asserting a gain; `google/pix2struct-textcaps-base` was fine-tuned on TextCaps, whose captions quote the text in the
 image, while most VizWiz references do not, so the adaptation may trade quoted text for the corpus's style (the
 per-category breakdown is where that shows); each image costs a 2048-patch encoder pass (~2.8–3.4 s on the reference
 CPU in the inference-only runs), which the encoder cache pays once per image but the frozen and adapted evaluations

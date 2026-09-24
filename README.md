@@ -54,7 +54,7 @@ weights/pix2struct-textcaps-base/
 
 ## Release status
 
-**Candidate.** The `E2E` revision of the notebook has no recorded execution: static/unit checks — including the standalone generator parity checks (`tools/build_notebook.py --check`, `tests/test_notebook_parity.py`) and the adaptation suites on a small random Pix2Struct built offline — do not constitute clean-runtime notebook evidence, and the fine-tuning recipe (learning rate, epochs) has not yet been run on the real checkpoint. The earlier `TASK-INFERENCE` notebook's runs in `docs/release-verification.md` do not carry over. Record a clean supported-runtime run of the exact notebook blob before calling it release-grade.
+**Release-grade** — the `E2E` notebook blob `2b72c3f7` (committed at `7eb0691`) executed top-to-bottom in a clean Kaggle Tesla T4 runtime on 2026-09-24 (11/11 code cells ok, 1 restart after the install cell, 902.2 s, 355 files / 1218 MB staged from the Hub into an empty cache); held-out test CIDEr-D frozen 0.309 → adapted 0.325 (`text` 0.490 → 0.504, `no-text` 0.068 → 0.086; constant-caption baseline 0.052), best validation epoch 4 of 4. The record is in `docs/release-verification.md` and `STATUS.md`. Static and unit checks — including the standalone generator parity checks — are necessary but were never the evidence; the hosted run is. A later change to the carried modules or the notebook returns the status to Candidate until re-verified.
 
 ## Documentation
 
