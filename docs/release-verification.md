@@ -1,109 +1,126 @@
 # Release verification
 
-`tutorials/pix2struct_textcaps_colab.ipynb` (`TASK-INFERENCE`, **standalone** carrier) is a
-**release candidate** until the exact notebook revision has executed top-to-bottom in a clean
-supported runtime. Unit tests, JSON validation, code-cell compilation, the generator parity checks
-and `tools/validate_release_assets.py` are necessary checks but are **not** runtime evidence under
-DIMER Notebook Specification 2.0. This file is the durable release-gate record for the notebook.
+`tutorials/pix2struct_textcaps_colab.ipynb` (`E2E`, **standalone** carrier) is a **release candidate** until the
+exact notebook revision has executed top-to-bottom in a clean supported runtime. Unit tests, JSON validation,
+code-cell compilation, the generator parity checks and `tools/validate_release_assets.py` are necessary checks but
+are **not** runtime evidence under DIMER Notebook Specification 2.0 (REL8). This file is the durable release-gate
+record for the notebook.
 
 ## Automatic coverage (static, every pull request)
 
 CI runs `tools/validate_release_assets.py`, which checks:
 
-- notebook JSON parses; every code cell compiles as plain Python (no `%`/`!` magics); no
-  persisted outputs or execution counts; no unresolved placeholder markers; every code cell
-  is preceded by an explanatory markdown cell;
-- exactly one tutorial notebook, named in `tutorials/README.md` with its `TASK-INFERENCE`
-  profile, the notebook-spec version and the standalone carrier; `metadata.dimer` declares that
-  profile, spec `2.0`, a pedagogical mode, `standalone: true` and `generated_from` (repository, revision, module
-  SHA-256, generator);
-- the standalone carrier (ST1–ST6, PAR1–PAR3): no clone, repository install or repository import on
-  the primary path; exactly one cell tagged `embedded_module` equal to
-  `src/pix2struct_textcaps_pipeline/pipeline.py` after the generator's documented rewrites; the
-  inline `MANIFEST` equal to the committed snapshot manifest and the inline `PINS` equal to the
-  `pyproject.toml` runtime pins; the notebook byte-identical (on LF) to `tools/build_notebook.py`
-  output for its recorded revision; the pinned-install cell with its restart-on-stale-import guard;
-  `NOTEBOOK_SOURCE` recorded in exports;
-- `MODEL_ID`/`MODEL_REVISION` are bound only in the carried module cell (and repeated in the inline
-  manifest, which the notebook asserts against the module before fetching), the revision is a 40-hex
-  immutable commit, and the same identity string appears in `README.md`, `MODEL_CARD.md`, and
-  `docs/WEIGHTS.md` with no stray revisions;
+- notebook JSON parses; every code cell compiles as plain Python (no `%`/`!` magics); no persisted outputs or
+  execution counts; no unresolved placeholder markers; every code cell is preceded by an explanatory markdown cell;
+- exactly one tutorial notebook, named in `tutorials/README.md` with its `E2E` profile, the notebook-spec version
+  and the standalone carrier; `metadata.dimer` declares that profile, spec `2.0`, a §3.3 pedagogical mode,
+  `standalone: true` and `generated_from` (repository, revision, module SHA-256, generator);
+- the standalone carrier (ST1–ST8, PAR1–PAR4): no clone, repository install or repository import on the primary
+  path; one cell per carried module (`pipeline.py`, `metrics.py`, `samples.py`), each equal to its source after the
+  generator's documented rewrites; the inline `MANIFEST` equal to the committed 8-entry snapshot manifest and the
+  inline `PINS` equal to the `pyproject.toml` runtime pins; the notebook byte-identical (on LF) to
+  `tools/build_notebook.py` output for its recorded revision; the pinned-install cell with its
+  restart-on-stale-import guard; `NOTEBOOK_SOURCE` recorded in exports;
+- `MODEL_ID`/`MODEL_REVISION` bound only in the carried module cell (and repeated in the inline manifest, which the
+  notebook asserts against the module before fetching), the revision a 40-hex immutable commit, and the same
+  identity string in `README.md`, `MODEL_CARD.md` and `docs/WEIGHTS.md` with no stray revisions (the pinned
+  VizWiz-Captions dataset revision is the one other 40-hex string allowed);
 - the profile-specific public-API calls (`stage_missing_files`, `verify_snapshot`,
-  `Pix2StructTextCapsPipeline.from_pretrained(weights_dir=...)`, `validate_inputs`, `caption`,
-  `evaluation_report`), the ceiling print (`MIN_IMAGE_SIDE`, `MAX_IMAGE_SIDE`, `MAX_PATCHES`,
-  `MAX_PREFIX_CHARS`, `MAX_NEW_TOKENS`, `DEFAULT_MAX_NEW_TOKENS`, `DECODING`), the exports, the
-  learner-facing statements (caller-owned budget and prefix, no score in generated text, the `truncated`
-  flag, `text_recall` as sanity check, `not-measurable` without known text, the model captions any image,
-  capability exclusions) and the gated-off BYOD default listed in the validator; forbidden patterns
-  (credential-in-URL, any `git clone` / `github.com` / repository import on the primary path, a mutable
-  `revision='main'`, direct `from transformers import` / `Pix2StructForConditionalGeneration` /
-  `Pix2StructProcessor` / `model.generate(` / `from huggingface_hub import` use **outside the carried
-  module cell**, `trust_remote_code=True`, `pickle.load`, `torch.load(`, `extractall(`);
-- `STATUS.md`, `README.md` and `tutorials/README.md` agree on one release-status token and no
-  document makes an unsupported release-grade, production-readiness or benchmark claim;
-- `MODEL_CARD.md` front matter (`model_card_spec: "1.1"`), single H1, required heading order, and
-  immutable provenance.
+  `Pix2StructTextCapsPipeline.from_pretrained(weights_dir=...)`, `fetch_annotations` and `fetch_images` from the
+  pinned cache path, `build_sample_dataset(seed=SPLIT_SEED, image_paths=...)` / `load_byod_dataset`,
+  `validate_dataset` per split, `check_split_disjoint`, `write_dataset_jsonl`, the ceiling print, `validate_inputs`
+  with the tiny-image refusal probe, `pipe.caption` with the sanity checks, `evaluation_report` with `text_recall`
+  on the drawn scenes, `constant_caption_baseline`, `colour_neighbour_baseline`, `pipe.evaluate` on the frozen
+  model and on the validation and test splits after adaptation, the per-category breakdown through `cider_d` and
+  `reference_captions`, `pipe.adapt` with its explicit hyperparameters, `evaluation_report` on the scenes after
+  adaptation, `pipe.save_artifact`, `Pix2StructTextCapsPipeline.from_artifact` and the reload-parity assertion,
+  the recorded `adapted_beats_frozen` flag, and the provenance fields `weight_format`, `weight_sha256` and the
+  `corpus` block), the six expected `outputs/` paths, the learner-facing statements and the gated-off BYOD default;
+  forbidden patterns (credential-in-URL, any `git clone` / `github.com` / repository import on the primary path, a
+  mutable `revision='main'`, direct `from transformers import` / `Pix2StructForConditionalGeneration` /
+  `Pix2StructProcessor` / `.generate(` / `from huggingface_hub import` / `urllib.request` / `pyarrow` /
+  `safetensors` / `torch.optim` / `.backward(` / `pipe._model` use **outside the carried module cells**,
+  `trust_remote_code=True`, `pickle.load`, `torch.load(`, `extractall(`);
+- `STATUS.md`, `README.md` and `tutorials/README.md` agree on one release-status token and no document makes an
+  unsupported release-grade, production-readiness or benchmark claim;
+- `MODEL_CARD.md` front matter (`model_card_spec: "1.1"`), single H1, the required headings in order, and the
+  immutable provenance section.
 
-CI also installs the pinned CPU-only torch wheel plus `transformers`, `safetensors`, `numpy` and
-`pillow`, runs `ruff check src tests tools`, `tools/build_notebook.py --check`, and the offline unit
-suite (`tests/test_pipeline.py`, `tests/test_role_helpers.py`, `tests/test_notebook_parity.py`;
-injected runner, no weights). These are source/provenance and unit checks. They are **not** execution
-evidence.
+CI also installs the pinned CPU-only torch wheel plus `transformers`, `safetensors`, `numpy`, `pillow`,
+`huggingface-hub` and `pyarrow`, runs `ruff check src tests tools`, `tools/build_notebook.py --check`, and the
+offline suites (`tests/test_pipeline.py`, `tests/test_adaptation.py`, `tests/test_role_helpers.py`,
+`tests/test_import_boundary.py`, `tests/test_notebook_parity.py`; injected runner, annotation and image fetchers,
+tiny PIL drawings, temporary manifests, no weights). `tests/test_adaptation_model.py` builds a 3-layer, 32-wide
+random Pix2Struct from the committed config, processor and tokenizer and runs the real `evaluate` / `adapt` /
+`save_artifact` / `load_artifact` path on it offline; its pinned-checkpoint and CUDA cases skip unless
+`model.safetensors` is staged and a GPU is visible. These are source/provenance and unit checks. They are **not**
+execution evidence.
 
 ## Executor paths
 
 | Path | Runtime | Role |
 |---|---|---|
-| Google Colab (supported user path) | Colab CPU runtime (CUDA used automatically when present) | The runtime the tutorial is written for; a clean top-to-bottom run here is promotion evidence |
-| Kaggle CLI kernel | Kaggle CPU kernel, Python 3.12 image | Reproducible clean-room executor of the same class; the notebook is pushed verbatim plus one leading shim cell that provides `google.colab` and chdirs to a scratch directory (**no repository checkout is needed — the notebook is standalone**) |
-| Local Windows-venv harness (pre-flight only) | Workstation, sequential cell executor with a `google.colab` shim, `CUDA_VISIBLE_DEVICES=-1` | Builder pre-flight to catch defects before spending cloud runs; **not** a supported runtime and not promotion evidence |
+| Google Colab (supported user path) | Colab CPU runtime (CUDA used automatically when present; a GPU runtime is recommended for Section 7) | The runtime the tutorial is written for; a clean top-to-bottom run here is promotion evidence |
+| Kaggle CLI kernel or equivalent fresh container | Fresh CPU or GPU container, Python 3.12 image; the committed notebook executed verbatim in a fresh interpreter with a `google.colab` shim and **no repository checkout** (the notebook is standalone) | Reproducible clean-room executor of the same class; promotion evidence |
+| Local harness (pre-flight only) | Workstation, sequential cell executor with a `google.colab` shim, pre-staged pins | Builder pre-flight to catch defects before spending cloud runs; **not** a supported runtime and **not** promotion evidence |
 
 ## Supported release verification procedure
 
 Before changing the registry status from `Candidate` to `Release-grade`:
 
 1. resolve the exact PR/commit head under review and confirm static CI is green;
-2. open that exact notebook revision in a new CPU (or CUDA) runtime (Colab, or the Kaggle
-   executor above) with **no repository checkout** and a clean model cache;
-3. run the notebook top-to-bottom without editing implementation cells (form parameters at their
-   defaults for the sample path: `USE_BYOD = False`, `max_new_tokens = 30`, `caption_prefix = ''`);
-4. verify that Section 1 reports `NOTEBOOK_SOURCE.repository_revision` equal to the revision recorded
-   in `metadata.dimer.generated_from` and that the installed core package versions equal the inline
-   `PINS` (= `pyproject.toml`);
+2. open that exact notebook revision in a new CPU or CUDA runtime (Colab, or a fresh-container executor above) with
+   **no repository checkout**, an empty Hugging Face cache, and no pre-staged files under the working-directory
+   snapshot `weights/pix2struct-textcaps-base/` or the corpus cache `weights/vizwiz-captions/`;
+3. run the notebook top-to-bottom without editing implementation cells (form parameters at their defaults:
+   `USE_BYOD = False`, `SPLIT_SEED = 42`, `CAPTION_MAX_TOKENS = 30`, `EPOCHS = 4`, `LEARNING_RATE = 1e-5`,
+   `BATCH_SIZE = 8`, `TRAINABLE_DECODER_LAYERS = 2`);
+4. verify that Section 1 reports `NOTEBOOK_SOURCE.repository_revision` equal to the revision recorded in
+   `metadata.dimer.generated_from` and that the installed core package versions equal the inline `PINS`
+   (= `pyproject.toml`; an interpreter restart after the install is expected where the runtime's preinstalled
+   torch or numpy differ from the pins);
 5. verify every default-path stage completes:
    - pinned runtime installed from the inline `PINS` with no GitHub access;
-   - the carried module cell executes (defines `Pix2StructTextCapsPipeline`, `validate_inputs`,
-     `evaluation_report`, `text_recall`, `keyword_hits`, `unigram_f1`, `verify_snapshot`,
-     `stage_missing_files`) with no import of the repository package;
-   - three synthetic cartoon scenes with rendered text drawn in code with their RGB SHA-256 printed and the
-     ceilings (`MIN_IMAGE_SIDE` 16, `MAX_IMAGE_SIDE` 4096, `MAX_PATCHES` 2048, `MAX_PREFIX_CHARS` 128,
-     `MAX_NEW_TOKENS` 64, `DEFAULT_MAX_NEW_TOKENS` 30, `DECODING` greedy) surfaced;
-   - pinned `google/pix2struct-textcaps-base` acquisition at the immutable revision through the carried
-     module: the inline `MANIFEST` is asserted against the module identity and written to
-     `weights/pix2struct-textcaps-base/`, `stage_missing_files(WEIGHTS_DIR, allow_download=True)` reports
-     all 8 manifest entries on a clean runtime, `verify_snapshot` returns its summary dict, and
-     `from_pretrained(weights_dir=WEIGHTS_DIR)` loads from the verified directory with no further Hub
-     access (any download in the logs after staging — a font fetch in particular — is a finding);
-   - `validate_inputs` writes `outputs/pix2struct_textcaps_input_manifest.json` (verdict `accepted`, three
-     inputs, one recorded rejection finding from the tiny-image probe);
-   - `caption` returning one caption per image with `truncated` false on the default budget; record the
-     captions (the card-pass CPU smoke produced `A stop sign is on a pole.`, `A blue sign that says Blue
-     Fern Bakery.`, `A blue shirt with the number 42 on it.`; a materially different result is a finding
-     to record, not a failure by itself, because no metric is asserted — greedy decoding on a different
-     device can diverge);
-   - `evaluation_report` writes `outputs/pix2struct_textcaps_evaluation_report.json` with verdict
-     `sample-sanity`, a `text_recall` entry and three per-image entries with found/missing tokens on the
-     synthetic sample (`not-measurable` on BYOD), stated as such;
-   - `outputs/pix2struct_textcaps_result.json`, `outputs/pix2struct_textcaps_captions.csv` and
-     `outputs/pix2struct_textcaps_annotated.png` written with `NOTEBOOK_SOURCE`, model revision, model
-     licence, runtime versions and device;
+   - the three carried module cells execute with no import of the repository package;
+   - the inline manifest asserted against the module's constants, then `stage_missing_files(WEIGHTS_DIR,
+     allow_download=True)` reporting all 8 manifest entries fetched from `google/pix2struct-textcaps-base` at the
+     immutable revision on a clean runtime, `verify_snapshot` returning its dict (8 files), and
+     `from_pretrained(weights_dir=WEIGHTS_DIR)` loading from the verified directory with no further Hub access (a
+     font fetch in the logs after staging is a finding);
+   - Section 4: `fetch_annotations` checking the VizWiz-Captions shard's declared size and SHA-256 against the
+     pins and matching the pinned text digest; `fetch_images` reading the 336 photographs of row group 0 with every
+     size and SHA-256 matching; the seeded split of the 318 captioned photographs into 208 / 40 / 70 with
+     `check_split_disjoint` reporting no shared image and the three dataset digests printed;
+     `outputs/pix2struct_textcaps_train.jsonl` written; the four dataset refusal probes each raising `ValueError`;
+   - Section 5: the ceilings surfaced; the three scenes drawn; `validate_inputs` writing
+     `outputs/pix2struct_textcaps_input_manifest.json` (verdict `accepted`, one recorded rejection finding from the
+     tiny-image probe); `pipe.caption` on the three scenes with every sanity check `True` and the per-image
+     `evaluation_report` verdict `sample-sanity` with `text_recall` (the inference-only notebook's runs quoted
+     `STOP`, `Blue Fern Bakery` and `42` and missed `OPEN` and `LIONS`; a different caption on another runtime is
+     a finding to record, not a failure);
+   - Section 6: the constant-caption and colour-neighbour baselines and the frozen model's test score with the
+     per-category breakdown, and the cell's assertion that the frozen CIDEr-D is above the constant caption's;
+   - Section 7: `pipe.adapt` printing epoch 0 as the frozen model, 18,879,744 trainable of 282,285,696
+     parameters (29 tensors: two decoder blocks and the final layer norm), 208 training photographs and their
+     (image, caption) pairs, and the epoch history with validation CIDEr-D;
+   - Section 8: `pipe.evaluate` on the validation and test splits with the four-way comparison on four metrics,
+     the per-category breakdown, `adapted_beats_frozen` printed and `outputs/pix2struct_textcaps_evaluation_report.json`
+     written (the gain is **recorded, not asserted**, until a measured recipe is on file);
+   - Section 9: the three scenes captioned by the adapted model with the `sample-sanity` report,
+     `outputs/pix2struct_textcaps_captions.csv` written; `pipe.save_artifact` writing
+     `outputs/pix2struct_textcaps_adapter/{adapter.safetensors,manifest.json}` and
+     `Pix2StructTextCapsPipeline.from_artifact` reloading it with identical captions (the cell asserts it);
+     `outputs/pix2struct_textcaps_result.json` written with `NOTEBOOK_SOURCE`, the model identity and licence, the
+     snapshot block, the `corpus` block, the inference-contract items, the comparison, the artifact digest, the
+     reload parity, the runtime versions and device;
 6. verify the exports exist and the interpretation section matches the observed path;
-7. record the notebook Git blob id, commit, runtime (platform, Python, PyTorch, Transformers, device),
-   model identifier and immutable revision, whether the model cache was clean, outcome, produced
-   outputs, and any warning or applicable `SHOULD` deviation in the table below;
+7. record the notebook Git blob id, commit, runtime (platform, Python, PyTorch, Transformers, device), the model
+   identifier and immutable revision, whether the model cache, the weights directory and the corpus cache were clean,
+   outcome, produced outputs, the observed metrics (as observations, not a benchmark), the value of
+   `adapted_beats_frozen` and any warning or applicable `SHOULD` deviation in the tables below;
 8. record no access tokens or other secrets.
 
-A known-failing default path in the supported runtime blocks release.
+A known-failing default path in the supported runtime blocks release (REL11).
 
 ## Recorded executions
 
@@ -112,13 +129,23 @@ Notebook identity is the Git blob id of `tutorials/pix2struct_textcaps_colab.ipy
 are the sum of per-cell times reported by the executor and include installs and the model download;
 they are measurements for the stated runtime, not general estimates.
 
-### Local pre-flight evidence (not a supported runtime)
+### `E2E` notebook
+
+| Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
+|---|---|---|---|---|---|
+| 2026-09-25 | `dc86ec8` / `2b72c3f7773c` (same blob; the PR head) | Kaggle Tesla T4 (`kurtvalcorza/dimer-nb2-pix2struct-textcaps` v3; image `gcr.io/kaggle-gpu-images/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461`, `torch 2.10.0+cu128` / `transformers 5.0.0` before the pinned install, `torch 2.14.0+cu130` (CUDA 13.0) / `transformers 4.57.6` after, Python 3.12.13, `cuda:0`, float32) | Default sample path, `Run all` from a fresh interpreter with an empty Hugging Face cache and no repository checkout (blob SHA-1 verified against GitHub before execution) | 868.0 s | **PASSED** — re-run at the exact PR head: 11/11 code cells ok (1 restart after install cell: the pins replaced the loaded numpy and cuda-bindings); 355 files, 1218 MB staged from the Hub into a clean cache; held-out numbers identical to the v2 row below: test CIDEr-D constant 0.052 / colour-neighbour 0.042 / frozen 0.309 / adapted 0.325, BLEU-4 0.096 → 0.099, ROUGE-L 0.329 → 0.364; by category `text` (40) 0.490 → 0.504, `no-text` (30) 0.068 → 0.086; validation CIDEr-D by epoch 0.219 / 0.237 / 0.261 / 0.264 / 0.275 (best epoch 4); adaptation 325.5 s; `adapted_beats_frozen` true; reload parity 8/8 identical captions; preserved output SHA-256: `pix2struct_textcaps_result.json` `702c829fc100…`, `pix2struct_textcaps_evaluation_report.json` `1cb9d1972fa8…`, `pix2struct_textcaps_adapter/adapter.safetensors` `1e979f50d563…` (75,522,608 bytes); run summary and executed notebook archived under `.agent/backups/kaggle-batch-2026-09-26/out/dimer-nb2-pix2struct-textcaps/v3/evidence/` in the workspace |
+| 2026-09-24 | `7eb0691` / `2b72c3f7773c` | Kaggle Tesla T4 (`kurtvalcorza/dimer-nb2-pix2struct-textcaps` v2; image `torch 2.10.0+cu128` / `transformers 5.0.0` before the pinned install, `torch 2.14.0+cu130` / `transformers 4.57.6` after, Python 3.12.13, `cuda:0`, float32) | Default sample path, `Run all` from a fresh interpreter with an empty Hugging Face cache and no repository checkout (blob SHA-1 verified against GitHub before execution) | 902.2 s | **PASSED** — 11/11 code cells ok (1 restart after install cell); 355 files, 1218 MB staged from the Hub into a clean cache; test CIDEr-D constant 0.052 / colour-neighbour 0.042 / frozen 0.309 / adapted 0.325, BLEU-4 0.096 → 0.099, ROUGE-L 0.329 → 0.364; by category `text` (40) 0.490 → 0.504, `no-text` (30) 0.068 → 0.086; validation CIDEr-D by epoch 0.219 / 0.237 / 0.261 / 0.264 / 0.275 (best epoch 4); adaptation 349.6 s; `adapted_beats_frozen` true; reload parity 8/8 identical captions; run summary and executed notebook archived under `.agent/backups/tier-b-pix2struct-2026-09-24/kaggle-out/dimer-nb2-pix2struct-textcaps/v2/evidence/` in the workspace |
+| 2026-09-24 | `4d8f3dc` / `2b72c3f7773c` (same blob) | Kaggle Tesla T4 script kernel (`kurtvalcorza/dimer-sweep-pix2struct-textcaps` v1; pinned runtime as above) — **pre-flight, not the promotion evidence** | full `pytest` suite on the GPU (real-checkpoint and CUDA cases), then the notebook's own code cells with the defaults, then Sections 7–8 re-run from the frozen model at `LEARNING_RATE` 2e-5 and 5e-5 | 2992.6 s | pytest exit 0; defaults reproduced the row above exactly (0.309 → 0.325); lr 2e-5 → 0.321 (`text` 0.503, `no-text` 0.078, best epoch 2); lr 5e-5 → 0.340 (`text` 0.484, `no-text` 0.148, best epoch 4) — the higher rate trades quoted text for the corpus's style, as anticipated; peak CUDA memory 6.7–7.9 GB in adaptation |
+
+The rows below are the earlier inference-only notebook's runs; they are history and are **not** evidence for the `E2E` blob.
+
+### Superseded `TASK-INFERENCE` notebook — local pre-flight (not a supported runtime)
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
 | 2026-09-14 | notebook blob `2591c6272d77` (commit `faeb013`, generated at `6daa835`; `NOTEBOOK_SOURCE.repository_revision` = `6daa835…`) | Local Windows-venv harness (`run_nb_local.py`: nbclient 0.11.0, fresh `python3` kernel, `CUDA_VISIBLE_DEVICES=-1`, `DIMER_NOTEBOOK_CI_PREINSTALLED=1`), Python 3.12.10, torch 2.14.0+cu130, transformers 4.57.6 | Default synthetic path, all 8 code cells: pinned install skipped (pre-installed), `stage_missing_files` fetched all 8 manifest entries (1.13 GB) from the Hub cache at the pinned revision into the scratch `weights/`, `verify_snapshot` PASS (8 files), no font or other download in the log after staging, three `caption` calls → `A stop sign is on a pole.`, `A blue sign that says Blue Fern Bakery.`, `A blue shirt with the number 42 on it.` (9/11/13 tokens, none truncated, 2.87–2.99 s), `evaluation_report` `sample-sanity` (`text_recall` 0.75 = 1.0/0.75/0.5; `open` and `lions` missing — the recorded misses reproduced), scene digests `9432a2ba…` / `dd0853ce…` / `b1e4d658…` (Pillow 11.3.0 bundled font), 5 outputs written | 139.3 s | PASS — pre-flight only; not promotion evidence |
 
-### Manual clean-runtime evidence
+### Superseded `TASK-INFERENCE` notebook — manual clean-runtime evidence
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
@@ -126,17 +153,17 @@ they are measurements for the stated runtime, not general estimates.
 
 ## Current status
 
-No clean-runtime execution in a **supported** runtime (Colab or Kaggle) has been recorded yet; clean execution evidence is now recorded below. What exists: static validation (`tools/validate_release_assets.py`), the generator parity
-checks (`--check` OK), the offline unit suite, and one **local fresh-kernel execution** of the generated
-notebook (table above) that exercised the standalone carrier, the real `hf_hub_download` staging path
-into an empty `weights/` directory, verification, captioning, the evaluation report and every export —
-which is necessary but not promotion evidence because the workstation is not a supported runtime. The
-registry status remains **Candidate** until a reviewer confirms a recorded supported-runtime run against
-the notebook blob under review and an integrator promotes it. Facts a reviewer should weigh: the CUDA
-path has not been executed; the tutorial samples are flat cartoons with text in Pillow's bundled font, not
-photographs, and the model's two recorded misses on them (`OPEN` and `LIONS` not quoted; a green jersey
-called blue) are kept in the scored set on purpose; on blank white images the model invented a bottle
-"that says 'the man's'" and on uniform noise a shirt "with the number 10", so an image without text yields
-a fluent caption quoting invented text with no signal; a conditional prefix can be continued mid-word or
-followed by an immediate end-of-sequence, so the default path is unconditional; and each image costs a
-2048-patch encoder pass (~2.8–3.4 s on the reference CPU), so a long image list scales linearly.
+**Release-grade** for blob `2b72c3f7` (committed at `7eb0691`; re-run at the PR head `dc86ec8` on 2026-09-25 with identical held-out
+numbers): the clean Kaggle Tesla T4 runs above are the evidence.
+Any later change to the carried modules or the notebook yields a new blob and returns the status to Candidate.
+
+Facts a reviewer should weigh before promotion: the fine-tuning recipe (`LEARNING_RATE = 1e-5`, four epochs, two
+blocks) was carried over from the BLIP captioning row and is now measured on this checkpoint (pre-flight row above):
+every recipe tried beat the frozen model, but by +0.012 to +0.031 CIDEr-D on 70 photographs with one seed, so the
+notebook keeps recording `adapted_beats_frozen` instead of asserting a gain; `google/pix2struct-textcaps-base` was fine-tuned on TextCaps, whose captions quote the text in the
+image, while most VizWiz references do not, so the adaptation may trade quoted text for the corpus's style (the
+per-category breakdown is where that shows); each image costs a 2048-patch encoder pass (~2.8–3.4 s on the reference
+CPU in the inference-only runs), which the encoder cache pays once per image but the frozen and adapted evaluations
+pay again, so a GPU runtime is recommended; the 40-photograph validation split makes epoch selection noisy and the
+70-photograph test split carries no dispersion estimate; the drawn scenes are three images of evidence about
+behaviour outside the corpus, not a measurement.
