@@ -3,7 +3,7 @@
 `tutorials/pix2struct_textcaps_colab.ipynb` (`E2E`, **standalone** carrier) is a **release candidate** until the
 exact notebook revision has executed top-to-bottom in a clean supported runtime. Unit tests, JSON validation,
 code-cell compilation, the generator parity checks and `tools/validate_release_assets.py` are necessary checks but
-are **not** runtime evidence under DIMER Notebook Specification 2.0 (REL8). This file is the durable release-gate
+are **not** runtime evidence under DIMER Notebook Specification 2.2 (REL8). This file is the durable release-gate
 record for the notebook.
 
 ## Automatic coverage (static, every pull request)
@@ -19,8 +19,7 @@ CI runs `tools/validate_release_assets.py`, which checks:
   path; one cell per carried module (`pipeline.py`, `metrics.py`, `samples.py`), each equal to its source after the
   generator's documented rewrites; the inline `MANIFEST` equal to the committed 8-entry snapshot manifest and the
   inline `PINS` equal to the `pyproject.toml` runtime pins; the notebook byte-identical (on LF) to
-  `tools/build_notebook.py` output for its recorded revision; the pinned-install cell with its
-  restart-on-stale-import guard; `NOTEBOOK_SOURCE` recorded in exports;
+  `tools/build_notebook.py` output for its recorded revision; the single kernel cell that builds (or reuses, by lock digest) the isolated hash-locked uv environment and routes every later cell to it, with no `pip install` into the kernel and no restart request; `NOTEBOOK_SOURCE` recorded in exports;
 - `MODEL_ID`/`MODEL_REVISION` bound only in the carried module cell (and repeated in the inline manifest, which the
   notebook asserts against the module before fetching), the revision a 40-hex immutable commit, and the same
   identity string in `README.md`, `MODEL_CARD.md` and `docs/WEIGHTS.md` with no stray revisions (the pinned
@@ -77,8 +76,8 @@ Before changing the registry status from `Candidate` to `Release-grade`:
    `BATCH_SIZE = 8`, `TRAINABLE_DECODER_LAYERS = 2`);
 4. verify that Section 1 reports `NOTEBOOK_SOURCE.repository_revision` equal to the revision recorded in
    `metadata.dimer.generated_from` and that the installed core package versions equal the inline `PINS`
-   (= `pyproject.toml`; an interpreter restart after the install is expected where the runtime's preinstalled
-   torch or numpy differ from the pins);
+   (= `pyproject.toml`; they are installed into the isolated environment Section 1 builds, so no interpreter restart is
+   expected);
 5. verify every default-path stage completes:
    - pinned runtime installed from the inline `PINS` with no GitHub access;
    - the three carried module cells execute with no import of the repository package;
@@ -99,7 +98,7 @@ Before changing the registry status from `Candidate` to `Release-grade`:
      `STOP`, `Blue Fern Bakery` and `42` and missed `OPEN` and `LIONS`; a different caption on another runtime is
      a finding to record, not a failure);
    - Section 6: the constant-caption and colour-neighbour baselines and the frozen model's test score with the
-     per-category breakdown, and the cell's assertion that the frozen CIDEr-D is above the constant caption's;
+     per-category breakdown, and the recorded verdict `frozen_beats_constant` (the frozen CIDEr-D against the constant caption's);
    - Section 7: `pipe.adapt` printing epoch 0 as the frozen model, 18,879,744 trainable of 282,285,696
      parameters (29 tensors: two decoder blocks and the final layer norm), 208 training photographs and their
      (image, caption) pairs, and the epoch history with validation CIDEr-D;
@@ -133,6 +132,7 @@ they are measurements for the stated runtime, not general estimates.
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
+| 2026-10-08 (03:14–03:28) | `63912b4` / `0e4fcb004ed9` (`NOTEBOOK_SOURCE.repository_revision` = `505d93f…`, the source revision the generator embedded; `505d93f..63912b4` changes only the isolated worker's `google.colab` stubs, which now carry a module spec, plus their regression test; embedded `module_sha256` `c828b40435e4…`, generator `build_notebook.py/2.2`) | Colab CLI 0.7.4 sequential execution (`colab exec -f`, not a browser Run all; order from `exec.log`, no execution counts), fresh Colab Tesla T4 VM, committed blob fetched at the 40-char SHA and Git-blob verified; kernel Python 3.13.15; isolated uv environment from the 48-package hash lock (Python 3.12.12, 57 s), torch 2.14.0+cu130, transformers 4.57.6, device `cuda:0`, float32, source `local-snapshot` | Default path, form parameters at their defaults, 13/13 code cells in order (cells 3–5 are the carried module definitions and print nothing). Staging: 8 manifest files (1,133,312,209 B) from `google/pix2struct-textcaps-base` @ `61bee0d7…`, `verify_snapshot` 8 files. Section 4: VizWiz-Captions @ `c4a6d897` (1,550 annotations, 336 photographs pinned), split 208 / 40 / 70 photographs (test 40 `text` + 30 `no-text`), the four refusal probes rejected. Section 5: three drawn scenes, mean text recall 0.75. Section 6 (n = 70): constant caption CIDEr-D 0.052, colour neighbour 0.042, frozen 0.309 (BLEU-4 0.096, ROUGE-L 0.329; `text` 0.490, `no-text` 0.068). Section 7: 18,879,744 of 282,285,696 parameters trainable, 889 training pairs; validation CIDEr-D 0.219 → 0.237 → 0.261 → 0.264 → 0.275, best epoch 4; 354.9 s. Section 8: adapted CIDEr-D 0.325 (+0.016), BLEU-4 0.099, ROUGE-L 0.364; `text` 0.504, `no-text` 0.086; `adapted_beats_frozen` `True` (recorded, not asserted). Section 9: drawn-scene text recall frozen 0.75 / adapted 0.583; adapter 29 tensors, 75,522,608 B, sha256 `1e979f50d563…`; reload parity 8/8 identical, 8 reloaded captions differ from the frozen ones. Not exercised: BYOD upload, the block-comparison experiment (skipped by default) and the other activities. Byte-exact evidence in `docs/execution-evidence/2026-10-08-63912b4/`: executed notebook sha256 `3fe3915b79cf…`, `exec.log` `1dc24626ad94…`, `run_summary.json` `ad4a701d7d6d…` | 815.9 s (one pass, no restart) | **PASSED** — one pass, no restart, 0 errors; evidence for this blob; status stays Candidate pending review |
 | 2026-09-25 | `dc86ec8` / `2b72c3f7773c` (same blob; the PR head) | Kaggle Tesla T4 (`kurtvalcorza/dimer-nb2-pix2struct-textcaps` v3; image `gcr.io/kaggle-gpu-images/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461`, `torch 2.10.0+cu128` / `transformers 5.0.0` before the pinned install, `torch 2.14.0+cu130` (CUDA 13.0) / `transformers 4.57.6` after, Python 3.12.13, `cuda:0`, float32) | Default sample path, `Run all` from a fresh interpreter with an empty Hugging Face cache and no repository checkout (blob SHA-1 verified against GitHub before execution) | 868.0 s | **PASSED** — re-run at the exact PR head: 11/11 code cells ok (1 restart after install cell: the pins replaced the loaded numpy and cuda-bindings); 355 files, 1218 MB staged from the Hub into a clean cache; held-out numbers identical to the v2 row below: test CIDEr-D constant 0.052 / colour-neighbour 0.042 / frozen 0.309 / adapted 0.325, BLEU-4 0.096 → 0.099, ROUGE-L 0.329 → 0.364; by category `text` (40) 0.490 → 0.504, `no-text` (30) 0.068 → 0.086; validation CIDEr-D by epoch 0.219 / 0.237 / 0.261 / 0.264 / 0.275 (best epoch 4); adaptation 325.5 s; `adapted_beats_frozen` true; reload parity 8/8 identical captions; preserved output SHA-256: `pix2struct_textcaps_result.json` `702c829fc100…`, `pix2struct_textcaps_evaluation_report.json` `1cb9d1972fa8…`, `pix2struct_textcaps_adapter/adapter.safetensors` `1e979f50d563…` (75,522,608 bytes); run summary and executed notebook archived under `.agent/backups/kaggle-batch-2026-09-26/out/dimer-nb2-pix2struct-textcaps/v3/evidence/` in the workspace |
 | 2026-09-24 | `7eb0691` / `2b72c3f7773c` | Kaggle Tesla T4 (`kurtvalcorza/dimer-nb2-pix2struct-textcaps` v2; image `torch 2.10.0+cu128` / `transformers 5.0.0` before the pinned install, `torch 2.14.0+cu130` / `transformers 4.57.6` after, Python 3.12.13, `cuda:0`, float32) | Default sample path, `Run all` from a fresh interpreter with an empty Hugging Face cache and no repository checkout (blob SHA-1 verified against GitHub before execution) | 902.2 s | **PASSED** — 11/11 code cells ok (1 restart after install cell); 355 files, 1218 MB staged from the Hub into a clean cache; test CIDEr-D constant 0.052 / colour-neighbour 0.042 / frozen 0.309 / adapted 0.325, BLEU-4 0.096 → 0.099, ROUGE-L 0.329 → 0.364; by category `text` (40) 0.490 → 0.504, `no-text` (30) 0.068 → 0.086; validation CIDEr-D by epoch 0.219 / 0.237 / 0.261 / 0.264 / 0.275 (best epoch 4); adaptation 349.6 s; `adapted_beats_frozen` true; reload parity 8/8 identical captions; run summary and executed notebook archived under `.agent/backups/tier-b-pix2struct-2026-09-24/kaggle-out/dimer-nb2-pix2struct-textcaps/v2/evidence/` in the workspace |
 | 2026-09-24 | `4d8f3dc` / `2b72c3f7773c` (same blob) | Kaggle Tesla T4 script kernel (`kurtvalcorza/dimer-sweep-pix2struct-textcaps` v1; pinned runtime as above) — **pre-flight, not the promotion evidence** | full `pytest` suite on the GPU (real-checkpoint and CUDA cases), then the notebook's own code cells with the defaults, then Sections 7–8 re-run from the frozen model at `LEARNING_RATE` 2e-5 and 5e-5 | 2992.6 s | pytest exit 0; defaults reproduced the row above exactly (0.309 → 0.325); lr 2e-5 → 0.321 (`text` 0.503, `no-text` 0.078, best epoch 2); lr 5e-5 → 0.340 (`text` 0.484, `no-text` 0.148, best epoch 4) — the higher rate trades quoted text for the corpus's style, as anticipated; peak CUDA memory 6.7–7.9 GB in adaptation |
@@ -153,8 +153,11 @@ The rows below are the earlier inference-only notebook's runs; they are history 
 
 ## Current status
 
-**Release-grade** for blob `2b72c3f7` (committed at `7eb0691`; re-run at the PR head `dc86ec8` on 2026-09-25 with identical held-out
-numbers): the clean Kaggle Tesla T4 runs above are the evidence.
+**Candidate.** The notebook was regenerated at `63912b4` (blob `0e4fcb004ed9`) and that exact blob passed the Colab CLI Tesla T4
+run recorded above (2026-10-08 UTC, 13/13 code cells, 815.9 s, one pass, no restart, 0 errors, default path only), reproducing
+the recorded held-out numbers; promotion to Release-grade is a review decision for the exact release revision. The earlier
+Release-grade record identifies blob `2b72c3f7` (committed at `7eb0691`; re-run at `dc86ec8` on 2026-09-25 with identical held-out
+numbers) only and remains history.
 Any later change to the carried modules or the notebook yields a new blob and returns the status to Candidate.
 
 Facts a reviewer should weigh before promotion: the fine-tuning recipe (`LEARNING_RATE = 1e-5`, four epochs, two
