@@ -54,7 +54,7 @@ weights/pix2struct-textcaps-base/
 
 ## Release status
 
-**Release-grade** — the `E2E` notebook blob `2b72c3f7` (committed at `7eb0691`) executed top-to-bottom in a clean Kaggle Tesla T4 runtime on 2026-09-24 (11/11 code cells ok, 1 restart after the install cell, 902.2 s, 355 files / 1218 MB staged from the Hub into an empty cache) and again at the PR head `dc86ec8` on 2026-09-25 (Kaggle kernel v3, 868.0 s, identical held-out numbers); held-out test CIDEr-D frozen 0.309 → adapted 0.325 (`text` 0.490 → 0.504, `no-text` 0.068 → 0.086; constant-caption baseline 0.052), best validation epoch 4 of 4. The record is in `docs/release-verification.md` and `STATUS.md`. Static and unit checks — including the standalone generator parity checks — are necessary but were never the evidence; the hosted run is. A later change to the carried modules or the notebook returns the status to Candidate until re-verified.
+**Candidate** — the `E2E` tutorial was regenerated at `63912b4` (blob `0e4fcb004ed9`); that exact blob passed a Colab CLI 0.7.4 sequential execution on a fresh Colab Tesla T4 (2026-10-08 UTC, default path only) in one pass, no restart, 0 errors, 13/13 code cells, 815.9 s, recorded in `docs/release-verification.md`; held-out test CIDEr-D frozen 0.309 → adapted 0.325 (`text` 0.490 → 0.504, `no-text` 0.068 → 0.086; constant-caption baseline 0.052), best validation epoch 4 of 4. Static and unit checks — including the standalone generator parity checks — are necessary but were never the evidence; the hosted run is. Promotion to Release-grade is a review decision against `docs/release-verification.md` for the exact release revision.
 
 ## Documentation
 

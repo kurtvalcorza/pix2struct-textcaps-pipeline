@@ -1,0 +1,82 @@
+[colab] Parsing notebook '/home/kurt/colab-runs/pix2struct-textcaps-pipeline-63912b4-ae8b98/pix2struct_textcaps_colab_63912b4_colab-cli-t4.ipynb'...
+[colab] Executing cell 1/13 - Infrastructure: build (or reuse) the isolated environment and route later cells to it...
+{'isolated_environment': '/content/dimer_isolated_env_9c9d7dd59af7', 'reused': False, 'isolated_python': '3.12.12', 'kernel_python': '3.13.15', 'locked_packages': 48, 'setup_seconds': 57}
+{'routed_to': '/content/dimer_isolated_env_9c9d7dd59af7/bin/python', 'worker_pid': 1072, 'worker_reused': False}
+[colab] Executing cell 2/13 - Infrastructure: record the runtime...
+{'notebook_source': {'repository': 'pix2struct-textcaps-pipeline', 'repository_revision': '505d93fd52f33429ec9608fb0511911594bfa32c', 'embedded_module': 'src/pix2struct_textcaps_pipeline/pipeline.py', 'embedded_modules': ['src/pix2struct_textcaps_pipeline/pipeline.py', 'src/pix2struct_textcaps_pipeline/metrics.py', 'src/pix2struct_textcaps_pipeline/samples.py'], 'module_sha256': 'c828b40435e404c0899956a89b4bbea5fea4119e8588a6d0f3ba8593c4ce649a', 'generator': 'build_notebook.py/2.2', 'notebook_spec': '2.2'}, 'python': '3.12.12', 'executable': '/content/dimer_isolated_env_9c9d7dd59af7/bin/python', 'torch': '2.14.0+cu130', 'transformers': '4.57.6', 'cuda': True}
+[colab] Executing cell 3/13 - Infrastructure: carried module 1/3: src/pix2struct_textcaps_pipeline/pipeline.py (verbatim; see the note above)...
+[colab] Executing cell 4/13 - Infrastructure: carried module 2/3: src/pix2struct_textcaps_pipeline/metrics.py (verbatim; see the note above)...
+[colab] Executing cell 5/13 - Infrastructure: carried module 3/3: src/pix2struct_textcaps_pipeline/samples.py (verbatim; see the note above)...
+[colab] Executing cell 6/13 - Infrastructure: stage and digest-verify the pinned snapshot, then load the model...
+{'model_id': 'google/pix2struct-textcaps-base', 'revision': '61bee0d7e2378e601b68f853ceee4f7cf99f1b88', 'license': 'apache-2.0', 'files': 8, 'total_bytes': 1133312209}
+{'weights_dir': '/content/weights/pix2struct-textcaps-base', 'fetched': ['README.md', 'config.json', 'model.safetensors', 'preprocessor_config.json', 'special_tokens_map.json', 'spiece.model', 'tokenizer.json', 'tokenizer_config.json']}
+{'verified_files': 8, 'revision': '61bee0d7e2378e601b68f853ceee4f7cf99f1b88'}
+{'device': 'cuda:0', 'source': 'local-snapshot'}
+[colab] Executing cell 7/13 - pix2struct_textcaps-16...
+{'data_source': 'VizWiz-Captions VizWiz-Captions v1 (2020) as re-converted on the Hugging Face Hub, dataset revision c4a6d897 (CC BY 4.0 (Gurari et al. 2020; vizwiz.org/tasks-and-datasets/image-captioning))', 'raw_rows': {'annotations': 1550, 'photographs': 336, 'captioned': 318}, 'splits': {'train': 208, 'validation': 40, 'test': 70}, 'text_sha256': '9799ebb13cf6a7e7...', 'pinned_photographs': 336}
+{'train': {'n': 208, 'unique_images': 208, 'categories': {'text': 110, 'no-text': 98}, 'captions_per_image': {'min': 1, 'max': 5}, 'caption_words': {'min': 7, 'max': 58}, 'digest': '3bec1610ac8c9faf...'}}
+{'validation': {'n': 40, 'unique_images': 40, 'categories': {'no-text': 15, 'text': 25}, 'captions_per_image': {'min': 1, 'max': 5}, 'caption_words': {'min': 8, 'max': 42}, 'digest': 'f00752da09b6fb96...'}}
+{'test': {'n': 70, 'unique_images': 70, 'categories': {'no-text': 30, 'text': 40}, 'captions_per_image': {'min': 1, 'max': 5}, 'caption_words': {'min': 7, 'max': 33}, 'digest': '89f298822913dc68...'}}
+{'example': {'id': 'train-0000', 'image': '29705.jpg', 'size': [968, 1296], 'category': 'text', 'captions': ['An open book with words about math problems I think.', 'Part of a textbook or workbook with printed questions related to science and magnification that has no writing it in.', 'View of a page of a book that has text talking about magnification.', 'Part of a piece of white paper with black text, framing issues prevent reading the entire thing.', 'directions for viewing something under I microscope in black and white']}}
+{'probe': 'duplicate id', 'rejected': "duplicate id 'same'"}
+{'probe': 'missing image file', 'rejected': 'records[0]: image file not found: work/does-not-exist.jpg'}
+{'probe': 'empty caption list', 'rejected': 'records[0]: captions must be a list of at least 1 reference caption(s)'}
+{'probe': 'too small', 'rejected': '3 records; 8..5000 are required'}
+[colab] Executing cell 8/13 - pix2struct_textcaps-19...
+{'MIN_IMAGE_SIDE': 16, 'MAX_IMAGE_SIDE': 4096, 'MAX_PATCHES': 2048, 'MAX_PREFIX_CHARS': 128, 'MAX_NEW_TOKENS': 64, 'DEFAULT_MAX_NEW_TOKENS': 30, 'DECODING': 'greedy', 'MIN_RECORDS': 8, 'MAX_RECORDS': 5000, 'MIN_CAPTIONS': 1, 'MAX_CAPTION_CHARS': 500}
+{'scenes': ['synthetic_stop_sign_640x480.png', 'synthetic_bakery_640x480.png', 'synthetic_jersey_480x560.png'], 'rgb_sha256': {'synthetic_stop_sign_640x480.png': '9432a2ba0e98a171...', 'synthetic_bakery_640x480.png': 'dd0853ce10aa586e...', 'synthetic_jersey_480x560.png': 'b1e4d658ceadad0b...'}, 'manifest_verdict': 'accepted', 'findings': 1}
+synthetic_stop_sign_640x480.png
+   caption: 'A stop sign is on a pole.'  (9 tokens)
+   drawn: ['STOP']
+synthetic_bakery_640x480.png
+   caption: 'A blue sign that says Blue Fern Bakery.'  (11 tokens)
+   drawn: ['Blue Fern Bakery', 'OPEN']
+synthetic_jersey_480x560.png
+   caption: 'A blue shirt with the number 42 on it.'  (13 tokens)
+   drawn: ['LIONS', '42']
+  text_recall 1.00  synthetic_stop_sign_640x480.png (found: ['stop'], missing: [])
+  text_recall 0.75  synthetic_bakery_640x480.png (found: ['blue', 'fern', 'bakery'], missing: ['open'])
+  text_recall 0.50  synthetic_jersey_480x560.png (found: ['42'], missing: ['lions'])
+{'checks': {'one_result_per_image': True, 'captions_are_text': True, 'budget_respected': True, 'setting_echoed': True}, 'frozen_scene_verdict': 'sample-sanity', 'mean_text_recall': 0.75, 'any_truncated': False}
+[colab] Executing cell 9/13 - pix2struct_textcaps-21...
+{'constant_caption_baseline': {'bleu4': 0.041, 'rouge_l': 0.336, 'cider_d': 0.052, 'unigram_f1': 0.385}, 'n': 70, 'caption': "constant caption 'A person is sitting on the inside of a dark area.'"}
+{'colour_neighbour_baseline': {'bleu4': 0.0, 'rouge_l': 0.227, 'cider_d': 0.042, 'unigram_f1': 0.251}, 'note': 'colour nearest neighbour (208 training images)'}
+{'frozen_model_test': {'bleu4': 0.096, 'rouge_l': 0.329, 'cider_d': 0.309, 'unigram_f1': 0.36}, 'mean_words': 10.7, 'n': 70, 'verdict': 'measured', 'adapted': False, 'seconds': 58.4}
+{'definitions': {'bleu4': 'corpus-level BLEU-4: geometric mean of clipped 1..4-gram precisions against all references, times the brevity penalty against the closest reference length; in 0..1', 'rouge_l': 'mean over images of the LCS-based F-measure (beta 1.2) against the best-matching reference; in 0..1', 'cider_d': 'mean over images of the CIDEr-D consensus score: TF-IDF-weighted 1..4-gram cosine similarity to the references with a Gaussian length penalty (sigma 6), clipped counts, scaled by 10; document frequencies from the references of the evaluated set; typically 0..~1.5 on VizWiz', 'unigram_f1': 'mean over images of the bag-of-words F1 against the best-matching reference; in 0..1'}}
+{'by_category': {'constant': {'no-text': {'n': 30, 'cider_d': 0.053}, 'text': {'n': 40, 'cider_d': 0.051}}, 'frozen': {'no-text': {'n': 30, 'cider_d': 0.068}, 'text': {'n': 40, 'cider_d': 0.49}}}}
+{'category': 'no-text', 'frozen': 'A black and white photo of a left and right arrow.', 'references': ['Electronic sound system buttons and switches with a electric cord across it.', 'a device with different control and switch on it']}
+{'category': 'text', 'frozen': 'A Dell computer is open to a page that says Shift.', 'references': ['I see a keyboard with a lot of numbers', 'Part of a computer keyboard is seen on a desk.']}
+{'category': 'no-text', 'frozen': 'A bottle of wine is next to a glass.', 'references': ['Round red object sitting on a brown plate', 'Seven red figs in a brown bowl on a table.']}
+{'frozen_beats_constant_caption': True}
+[colab] Executing cell 10/13 - pix2struct_textcaps-24...
+{'epoch': 0, 'train_loss': None, 'val_bleu4': 0.079, 'val_rouge_l': 0.297, 'val_cider_d': 0.219, 'val_unigram_f1': 0.325, 'val_mean_words': 10.6, 'note': 'frozen model'}
+{'epoch': 1, 'train_loss': 3.5842, 'val_bleu4': 0.097, 'val_rouge_l': 0.321, 'val_cider_d': 0.237, 'val_unigram_f1': 0.348, 'val_mean_words': 11.3}
+{'epoch': 2, 'train_loss': 3.5201, 'val_bleu4': 0.091, 'val_rouge_l': 0.316, 'val_cider_d': 0.261, 'val_unigram_f1': 0.348, 'val_mean_words': 12.1}
+{'epoch': 3, 'train_loss': 3.4387, 'val_bleu4': 0.089, 'val_rouge_l': 0.335, 'val_cider_d': 0.264, 'val_unigram_f1': 0.362, 'val_mean_words': 12.8}
+{'epoch': 4, 'train_loss': 3.3872, 'val_bleu4': 0.077, 'val_rouge_l': 0.321, 'val_cider_d': 0.275, 'val_unigram_f1': 0.35, 'val_mean_words': 14.1}
+{'trainable_parameters': 18879744, 'total_parameters': 282285696, 'training_pairs': 889, 'best_epoch': 4, 'selection': 'highest validation CIDEr-D', 'seconds': 354.9}
+[colab] Executing cell 11/13 - pix2struct_textcaps-27...
+{'scored_weights': {'frozen_test_adapted': False, 'adapted_test_adapted': True}, 'best_epoch': 4}
+{'bleu4': {'constant': 0.041, 'neighbour': 0.0, 'frozen': 0.096, 'adapted': 0.099}}
+{'rouge_l': {'constant': 0.336, 'neighbour': 0.227, 'frozen': 0.329, 'adapted': 0.364}}
+{'cider_d': {'constant': 0.052, 'neighbour': 0.042, 'frozen': 0.309, 'adapted': 0.325}}
+{'unigram_f1': {'constant': 0.385, 'neighbour': 0.251, 'frozen': 0.36, 'adapted': 0.391}}
+{'mean_words': {'constant': 11.0, 'neighbour': 12.2, 'frozen': 10.7, 'adapted': 14.0}}
+{'delta_vs_frozen': {'bleu4': 0.002, 'rouge_l': 0.034, 'cider_d': 0.016, 'unigram_f1': 0.031}}
+{'by_category': {'no-text': {'n': 30, 'constant': 0.053, 'frozen': 0.068, 'adapted': 0.086}, 'text': {'n': 40, 'constant': 0.051, 'frozen': 0.49, 'adapted': 0.504}}}
+{'category': 'no-text', 'frozen': 'A black and white photo of a left and right arrow.', 'adapted': 'A black and white photo of a black and white photo of a black and white photo of a black and white photo of a black and white photo of', 'references': ['Electronic sound system buttons and switches with a electric cord across it.', 'a device with different control and switch on it']}
+{'category': 'text', 'frozen': 'A Dell computer is open to a page that says Shift.', 'adapted': 'A computer keyboard with a black keypad and a black keyboard.', 'references': ['I see a keyboard with a lot of numbers', 'Part of a computer keyboard is seen on a desk.']}
+{'category': 'no-text', 'frozen': 'A bottle of wine is next to a glass.', 'adapted': 'A red and white can of Coca Cola sits on a table.', 'references': ['Round red object sitting on a brown plate', 'Seven red figs in a brown bowl on a table.']}
+{'adapted_beats_frozen': True}
+{'report': 'outputs/pix2struct_textcaps_evaluation_report.json'}
+[colab] Executing cell 12/13 - pix2struct_textcaps-30...
+{'image': 'synthetic_stop_sign_640x480.png', 'frozen': 'A stop sign is on a pole.', 'adapted': 'A red stop sign is on a white background.', 'adapted_text_recall': 1.0}
+{'image': 'synthetic_bakery_640x480.png', 'frozen': 'A blue sign that says Blue Fern Bakery.', 'adapted': 'A white and blue sign that says Blue Fern Bakery.', 'adapted_text_recall': 0.75}
+{'image': 'synthetic_jersey_480x560.png', 'frozen': 'A blue shirt with the number 42 on it.', 'adapted': 'A blue shirt with a lion on it.', 'adapted_text_recall': 0.0}
+{'mean_text_recall': {'frozen': 0.75, 'adapted': 0.583}}
+{'artifact': 'outputs/pix2struct_textcaps_adapter', 'format': 'org.valcorza.pix2struct-textcaps-base.adapter.v1', 'tensors': 29, 'bytes': 75522608, 'sha256': '1e979f50d5630219...'}
+{'reload_parity': {'identical_captions': 8, 'of': 8, 'reloaded_captions_differing_from_frozen': 8}, 'reloaded_best_epoch': 4, 'note': 'reloaded_captions_differing_from_frozen says whether parity shows the adapter applied (> 0) or only the base reproduced (0, expected when the selector kept epoch 0)'}
+['pix2struct_textcaps_adapter', 'pix2struct_textcaps_captions.csv', 'pix2struct_textcaps_evaluation_report.json', 'pix2struct_textcaps_input_manifest.json', 'pix2struct_textcaps_result.json', 'pix2struct_textcaps_train.jsonl']
+[colab] Executing cell 13/13 - pix2struct_textcaps-33...
+{'block_comparison_experiment': 'skipped (set RUN_BLOCK_COMPARISON = True to run it); nothing was trained or written'}
+[colab] Saving notebook with outputs to '/home/kurt/colab-runs/pix2struct-textcaps-pipeline-63912b4-ae8b98/pix2struct_textcaps_colab_63912b4_colab-cli-t4_output.ipynb'...
