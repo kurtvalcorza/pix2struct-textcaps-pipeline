@@ -68,3 +68,55 @@ the settings below.
   scored after the selection, with the selected configuration.
 - The first recorded hosted run with these settings is the pre-registered evaluation; a later identical run is a
   reproduction of it. Machine-readable outputs carry `test_look` and `settings_differing`.
+
+## Amendment 1 (2026-10-17), before any fresh-test score exists
+
+Recorded after a peer review of the screen and before the fresh test has been captioned or scored by any run (no hosted
+run of this pre-registration exists; every CPU check so far masked the fresh test). It replaces the near-duplicate
+screen above and adds an interval and four fixed settings. Nothing in it was chosen from a fresh-test outcome.
+
+**Why.** The original screen (64-bit dHash, Hamming distance <= 10 against all 336 row-group-0 photographs) flagged 53
+of the 324 captioned fresh photographs. Its flags are look-alikes, not duplicates: blank or smooth frames hash alike
+whatever their content (the three distance-0 matches are blank walls matched to a red frame), the reference pool
+included photographs that are never trained on, and the exclusions shifted the test's `text` share and reference count.
+
+**Screen (replaces the one above).**
+- Reference pool: the **208 training photographs** of the pre-registered split (`SPLIT_SEED = 42`) only. Validation,
+  the exposed development test, uncaptioned row-group-0 photographs and other fresh photographs are not references.
+- Candidates: a fresh photograph whose dHash (unchanged definition) lies within Hamming distance **10** of a training
+  photograph is a *candidate* only. The candidate list is pinned.
+- Confirmation by content: a **recorded manual review** of each candidate next to its nearest training photograph.
+  A candidate is confirmed only when both photographs show the **same physical object or scene** (a re-take, crop or
+  re-encoding of the same item in the same setting). Two different objects that look alike, and blank, black, blurred
+  or otherwise low-content frames, are never confirmed. Each decision is listed by id, with its reason, in the
+  carried module (`FRESH_TEST_SCREEN_REVIEW`). Only confirmed near-copies are excluded.
+- The review looks at the photographs only; it is made without any caption generated for, or score computed on, the
+  fresh test.
+
+**Reporting.**
+- **Primary:** the confirmed-screened set (captioned pool minus confirmed near-copies).
+- **Secondary:** the full unscreened captioned pool (324 photographs), scored from the same captions.
+- Reported with both: the excluded ids and the reason for each, and each set's size, `text` share and mean reference
+  count.
+- The 12 row-group-2 photographs with no usable reference caption (the Hub conversion dropped every rejected or
+  pre-canned caption) cannot be scored; they are listed, and the interpretation says that unrecognisable photographs
+  are therefore not measured.
+
+**Interval and verdict.** On each fresh set, a paired bootstrap 95 % interval of the per-image CIDEr-D difference
+(adapted minus frozen): 2,000 resamples of images with replacement, seed 0, percentile interval, per-image scores
+computed once on the whole evaluated set (document frequencies held fixed). The verdict is read from the primary
+interval: "adapted above frozen" if it lies above 0, "adapted below frozen" if below 0, otherwise "no difference
+detected". The same interval is reported per category and on the secondary set. `adapted_beats_frozen` stays as a
+point-estimate flag only.
+
+**Margins.** The 0.02 margins are a practical tolerance (a tie-break toward the default rate and toward the frozen
+model), not a guard against the noise of 40 validation photographs; the selection rules themselves are unchanged.
+
+**Further fixed settings** added to the `preregistered` comparison: AdamW weight decay 0.01, gradient clipping 1.0, no
+scheduler, greedy decoding, a validation caption budget equal to `CAPTION_MAX_TOKENS` (30), the model revision, and
+the fresh-test id digests.
+
+**Cost (estimate, not a measurement).** From the 2026-10-08 hosted T4 run of blob `0e4fcb00` (815.9 s wall, 354.9 s
+per adaptation, about 0.83 s per photograph captioned): two more adaptations (about 710 s), about 30 s of model
+reloads, and the 324-photograph pool captioned by the frozen and the adapted model (about 540 s) give about
+2,100 s, roughly **35 min**. The first hosted wall time will be recorded as an observation.
