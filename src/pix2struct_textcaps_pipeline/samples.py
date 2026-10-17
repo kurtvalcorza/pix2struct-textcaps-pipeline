@@ -35,7 +35,16 @@ from typing import Any
 
 from PIL import Image
 
-from .pipeline import MAX_PREFIX_CHARS, MODEL_ID, validate_image
+from .pipeline import (
+    ADAPT_GRAD_CLIP,
+    ADAPT_SCHEDULER,
+    ADAPT_WEIGHT_DECAY,
+    DECODING,
+    MAX_PREFIX_CHARS,
+    MODEL_ID,
+    MODEL_REVISION,
+    validate_image,
+)
 
 CORPUS_NAME = "VizWiz-Captions"
 CORPUS_REPO = "mm-eval/VizWiz-Captions"
@@ -749,22 +758,121 @@ FRESH_IMAGE_PINS: dict[str, tuple[str, int]] = {
     "30637": ("fb6945097d1fa6289be16b4c41aa78a395c3d38447f54b53e314fcc96a62161b", 323442),
     "30638": ("679925b3fc15c578c6b3b1ec9ec2dd80ac308ae791747abcac4c93ab1059bf7e", 459902),
 }
-# Near-duplicate screen, applied before the first scoring: a fresh photograph whose 64-bit dHash lies within
-# NEAR_DUPLICATE_MAX_DISTANCE bits of any row-group-0 photograph is excluded. The exclusions are pinned here.
-NEAR_DUPLICATE_HASH = "dHash 64-bit (greyscale, 9 x 8, one bit per horizontally adjacent pair)"
+# Near-duplicate screen (pre-registration Amendment 1, 2026-10-17). A fresh photograph whose 64-bit dHash lies
+# within
+# NEAR_DUPLICATE_MAX_DISTANCE bits of one of the 208 TRAINING photographs (pre-registered split) is only a
+# CANDIDATE;
+# it is excluded only when a recorded manual review confirms the same physical object or scene. Blank, black,
+# blurred
+# or other low-content frames are never confirmed. Candidates, decisions and reasons are pinned here.
+NEAR_DUPLICATE_HASH = "dHash 64-bit (greyscale, 9 x 8, one bit per adjacent pair), candidates only"
 NEAR_DUPLICATE_MAX_DISTANCE = 10
-# 53 of the 324 captioned photographs flagged by the screen on 2026-10-17 (3 at distance 0),
-# before any of them was captioned.
-FRESH_TEST_EXCLUDED: tuple[str, ...] = (
-    "30315", "30316", "30327", "30331", "30334", "30355", "30359", "30365", "30370", "30371",
-    "30374", "30379", "30388", "30389", "30400", "30403", "30404", "30410", "30413", "30419",
-    "30431", "30437", "30438", "30448", "30449", "30457", "30463", "30467", "30470", "30480",
-    "30489", "30491", "30496", "30501", "30526", "30551", "30552", "30556", "30572", "30574",
-    "30576", "30587", "30591", "30599", "30602", "30603", "30608", "30613", "30627", "30631",
-    "30633", "30635", "30637",
+# The 12 row-group-2 photographs with no usable reference caption (every caption rejected or pre-canned
+# upstream):
+# they cannot be scored, so unrecognisable photographs are not measured.
+FRESH_TEST_UNCAPTIONED: tuple[str, ...] = (
+    "30317", "30328", "30380", "30402", "30450", "30461",
+    "30462", "30553", "30565", "30605", "30624", "30636",
 )
-FRESH_TEST_SIZE = 271
-FRESH_TEST_IDS_SHA256 = "466e37d71c5f95f7f292a04bb03d1e2efbfd8fd758b072bdb6ec8c8f6bfe2834"
+# candidate id -> (nearest training photograph, Hamming distance); computed 2026-10-17 before any fresh
+# caption existed.
+FRESH_TEST_CANDIDATES: dict[str, tuple[str, int]] = {
+    "30315": ("29952", 10),
+    "30316": ("29677", 9),
+    "30331": ("29927", 6),
+    "30334": ("29897", 9),
+    "30355": ("29667", 3),
+    "30359": ("29897", 6),
+    "30365": ("29815", 10),
+    "30370": ("29897", 7),
+    "30371": ("29664", 8),
+    "30374": ("29851", 9),
+    "30379": ("29874", 8),
+    "30389": ("29677", 0),
+    "30400": ("29851", 10),
+    "30403": ("29874", 10),
+    "30404": ("29758", 9),
+    "30410": ("29667", 9),
+    "30413": ("29677", 7),
+    "30419": ("29661", 10),
+    "30431": ("29937", 10),
+    "30448": ("29936", 10),
+    "30449": ("29851", 10),
+    "30463": ("29927", 10),
+    "30467": ("29677", 0),
+    "30470": ("29730", 9),
+    "30489": ("29937", 9),
+    "30491": ("29924", 9),
+    "30501": ("29913", 10),
+    "30526": ("29677", 0),
+    "30551": ("29874", 5),
+    "30552": ("29658", 10),
+    "30556": ("29667", 9),
+    "30574": ("29740", 10),
+    "30576": ("29917", 10),
+    "30587": ("29937", 9),
+    "30599": ("29738", 8),
+    "30602": ("29878", 10),
+    "30608": ("29851", 10),
+    "30613": ("29846", 9),
+    "30631": ("29917", 10),
+    "30635": ("29927", 4),
+    "30637": ("29790", 8),
+}
+# candidate id -> (confirmed near-copy?, reason), from the recorded review of each candidate beside its
+# nearest
+# training photograph (2026-10-17, photographs only; no caption generated or score computed on the fresh
+# test).
+FRESH_TEST_SCREEN_REVIEW: dict[str, tuple[bool, str]] = {
+    "30315": (False, "different objects: a $5 bill on a table vs a pasta box"),
+    "30316": (False, "different scenes: hair and fabric vs a blank red frame (low-content reference)"),
+    "30331": (False, "different objects: pink fabric vs a cartoon on a screen"),
+    "30334": (False, "different objects: a blurred card vs a printed page with glare"),
+    "30355": (False, "low-content frames: blurred denim vs a plain green surface"),
+    "30359": (False, "different objects: a laptop surface vs a printed page with glare"),
+    "30365": (False, "different objects: a wristwatch vs a garment edge"),
+    "30370": (False, "different objects: baking instructions vs a printed page with glare"),
+    "30371": (False, "different objects: a paprika jar vs a mayonnaise jar"),
+    "30374": (False, "different objects: a digital display vs earphones"),
+    "30379": (False, "low-content frames: dark fabric vs a plain red surface"),
+    "30389": (False, "low-content: blank light frame vs blank red frame (hash distance 0, not a copy)"),
+    "30400": (False, "different objects: a meat package vs earphones"),
+    "30403": (False, "different objects: a CD cover vs a plain red surface"),
+    "30404": (False, "low-content frames: a plain light surface vs a green card"),
+    "30410": (False, "different objects: a chocolate bar on a table vs a plain green surface"),
+    "30413": (False, "different objects: a jar label vs a blank red frame"),
+    "30419": (False, "different objects: a laptop logo vs a packaged steak"),
+    "30431": (False, "different objects: a book page vs a blank light frame"),
+    "30448": (False, "different objects: a medicine box in a hand vs a TV remote"),
+    "30449": (False, "different objects: striped fabric vs earphones"),
+    "30463": (False, "different objects: a bottle label vs a cartoon on a screen"),
+    "30467": (False, "low-content: blank light frame vs blank red frame (hash distance 0, not a copy)"),
+    "30470": (False, "low-content frames: a blue blur vs a black frame"),
+    "30489": (False, "different scenes: a floor and cabinet vs a blank light frame"),
+    "30491": (False, "different objects: a wooden ceiling vs a gas meter"),
+    "30501": (False, "different objects: a can on a table vs denim"),
+    "30526": (False, "low-content: blank grey frame vs blank red frame (hash distance 0, not a copy)"),
+    "30551": (False, "low-content frames: a blurred light garment vs a plain red surface"),
+    "30552": (False, "different objects: a hi-fi cabinet vs a phone on a floor"),
+    "30556": (False, "different objects: a keyboard vs a plain green surface"),
+    "30574": (False, "different objects: a coffee pod vs hair"),
+    "30576": (False, "different objects: a snack package vs a worksheet"),
+    "30587": (False, "low-content frames: a blurred light surface vs a blank light frame"),
+    "30599": (False, "different objects: a seed packet vs an audio receiver"),
+    "30602": (False, "different objects: a poster vs a dark sofa"),
+    "30608": (False, "different objects: a turkey package vs earphones"),
+    "30613": (False, "different scenes: a blank glowing screen vs a laptop showing a web page"),
+    "30631": (False, "different objects: a plug-in device on a pillow vs a worksheet"),
+    "30635": (False, "different objects: a Nespresso package vs a cartoon on a screen"),
+    "30637": (False, "different objects: a plastic container vs a keyboard"),
+}
+FRESH_TEST_EXCLUDED: tuple[str, ...] = tuple(
+    sorted(k for k, (confirmed, _) in FRESH_TEST_SCREEN_REVIEW.items() if confirmed)
+)
+FRESH_POOL_SIZE = 324  # the captioned pool (secondary set)
+FRESH_POOL_IDS_SHA256 = "02e15128fc50ed47a9c5e38f8f0d5c4774d72477fc23974b6efaa11def5316d6"
+FRESH_TEST_SIZE = 324  # the confirmed-screened set (primary)
+FRESH_TEST_IDS_SHA256 = "02e15128fc50ed47a9c5e38f8f0d5c4774d72477fc23974b6efaa11def5316d6"
 
 # ---- Learning-rate grid and score-once rule (pre-registered 2026-10-17) ----
 LR_GRID = (1e-5, 2e-5, 5e-5)
@@ -790,6 +898,15 @@ PREREGISTERED_SETTINGS: dict[str, Any] = {
     "lr_grid": list(LR_GRID),
     "lr_margin": LR_MARGIN,
     "frozen_margin": FROZEN_MARGIN,
+    # Amendment 1: settings the pre-registration fixes beyond the form fields.
+    "validation_max_new_tokens": 30,
+    "weight_decay": ADAPT_WEIGHT_DECAY,
+    "grad_clip": ADAPT_GRAD_CLIP,
+    "scheduler": ADAPT_SCHEDULER,
+    "decoding": DECODING,
+    "model_revision": MODEL_REVISION,
+    "fresh_test_ids_sha256": FRESH_TEST_IDS_SHA256,
+    "fresh_pool_ids_sha256": FRESH_POOL_IDS_SHA256,
 }
 # A runtime cannot know about other runtimes (SCORE_ONCE_RULE item 8): a pre-registered scoring is
 # labelled for this runtime; docs/release-verification.md names the hosted run of record.
@@ -1083,35 +1200,48 @@ def fresh_ids_digest(image_ids: Sequence[str]) -> str:
     return _sha256_bytes(json.dumps([str(i) for i in image_ids], separators=(",", ":")).encode("utf-8"))
 
 
+def set_profile(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Size, `text` share and mean reference count of an evaluated set: CIDEr-D is comparable only within one
+    set
+    (its document frequencies, category mix and reference counts differ between sets)."""
+    n = len(records)
+    return {
+        "n": n,
+        "text_share": round(sum(1 for r in records if r.get("category") == "text") / n, 3) if n else None,
+        "mean_references": round(sum(len(r["captions"]) for r in records) / n, 2) if n else None,
+    }
+
+
 def build_fresh_test(
     annotations: Sequence[Mapping[str, Any]],
     fresh_paths: Mapping[str, Path],
-    sample_paths: Mapping[str, Path],
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """The fresh test: the captioned photographs of row group 2 minus the pinned near-duplicate exclusions.
-    Re-runs
-    the near-duplicate screen against every row-group-0 photograph and refuses to continue unless it flags
-    exactly
-    `FRESH_TEST_EXCLUDED`; checks image-id disjointness from row group 0 and the pinned id digest."""
+    train_paths: Mapping[str, Path],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    """The fresh test (pre-registration Amendment 1): the captioned photographs of row group 2 (the secondary,
+    unscreened pool) and that pool minus the review-confirmed near-copies (the primary set). Re-runs the dHash
+    candidate screen against the training photographs and refuses to continue unless it reproduces the pinned
+    candidates; checks image-id disjointness from row group 0 and both pinned id digests. Returns
+    ``(primary_records, pool_records, report)``."""
     by_id = {str(r["id"]): r for r in annotations}
     shared = sorted(set(FRESH_IMAGE_PINS) & set(IMAGE_PINS))
     if shared:
         raise ValueError(f"fresh test shares image ids with row group 0: {shared[:3]}")
     pool = sorted(i for i in FRESH_IMAGE_PINS if len(by_id[i]["captions"]) >= MIN_CAPTIONS)
-    screen = near_duplicate_screen({i: fresh_paths[i] for i in pool}, dict(sample_paths))
-    if tuple(screen["flagged"]) != tuple(FRESH_TEST_EXCLUDED):
+    uncaptioned = sorted(i for i in FRESH_IMAGE_PINS if len(by_id[i]["captions"]) < MIN_CAPTIONS)
+    screen = near_duplicate_screen({i: fresh_paths[i] for i in pool}, dict(train_paths))
+    found = {p["candidate"]: (p["reference"], p["distance"]) for p in screen["pairs"]}
+    if found != dict(FRESH_TEST_CANDIDATES) or tuple(uncaptioned) != FRESH_TEST_UNCAPTIONED:
         raise ValueError(
-            f"near-duplicate screen flagged {screen['flagged']}, pinned {list(FRESH_TEST_EXCLUDED)}: "
-            "the photographs "
-            "or the Pillow build differ from the pre-registration; the fresh test is not scored"
+            f"the candidate screen found {len(found)} candidates, pinned {len(FRESH_TEST_CANDIDATES)}: "
+            "the photographs, the training split or the Pillow build differ from the pre-registration; "
+            "the fresh test is not scored"
         )
     kept = [i for i in pool if i not in set(FRESH_TEST_EXCLUDED)]
-    digest = fresh_ids_digest(kept)
-    if len(kept) != FRESH_TEST_SIZE or digest != FRESH_TEST_IDS_SHA256:
-        raise ValueError(
-            f"fresh test: {len(kept)} photographs with id digest {digest[:16]}…, pinned {FRESH_TEST_SIZE} / "
-            f"{FRESH_TEST_IDS_SHA256[:16]}…"
-        )
+    pinned = ((pool, FRESH_POOL_SIZE, FRESH_POOL_IDS_SHA256), (kept, FRESH_TEST_SIZE, FRESH_TEST_IDS_SHA256))
+    for ids, size, digest in pinned:
+        got = fresh_ids_digest(ids)
+        if len(ids) != size or got != digest:
+            raise ValueError(f"fresh test: {len(ids)} photographs with id digest {got[:16]}…, pinned {size}")
     records = [
         {
             "id": f"fresh-{index:04d}",
@@ -1120,20 +1250,28 @@ def build_fresh_test(
             "captions": [str(c) for c in by_id[image_id]["captions"]],
             "category": "text" if by_id[image_id]["text_detected"] else "no-text",
         }
-        for index, image_id in enumerate(kept)
+        for index, image_id in enumerate(pool)
     ]
+    primary = [r for r in records if r["image_id"] not in set(FRESH_TEST_EXCLUDED)]
     report = {
         "row_group": FRESH_TEST_ROW_GROUP,
         "photographs": len(FRESH_IMAGE_PINS),
-        "captioned": len(pool),
-        "excluded_near_duplicates": list(FRESH_TEST_EXCLUDED),
-        "kept": len(kept),
-        "ids_sha256": digest,
+        "uncaptioned": uncaptioned,
+        "pool": len(pool),
+        "candidates": len(found),
+        "excluded": {k: FRESH_TEST_SCREEN_REVIEW[k][1] for k in FRESH_TEST_EXCLUDED},
+        "kept": len(primary),
+        "ids_sha256": FRESH_TEST_IDS_SHA256,
+        "pool_ids_sha256": FRESH_POOL_IDS_SHA256,
         "shared_ids_with_row_group_0": 0,
         "screen": {k: v for k, v in screen.items() if k != "pairs"},
-        "flagged_pairs": screen["pairs"],
+        "profiles": {
+            "primary": set_profile(primary),
+            "pool": set_profile(records),
+            "excluded": set_profile([r for r in records if r["image_id"] in set(FRESH_TEST_EXCLUDED)]),
+        },
     }
-    return records, report
+    return primary, records, report
 
 
 def _canonical_setting(value: Any) -> Any:

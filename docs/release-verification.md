@@ -164,8 +164,15 @@ The rows below are the earlier inference-only notebook's runs; they are history 
   frozen model unless beaten by at least 0.02; the grid is on by default (`RUN_GRID = True`; estimated about 35 min on a
   T4, not yet measured).
 - **Fresh test.** Row group 2 of the pinned shard (footer read 2026-10-17: row groups 336/336/336/336/206), ids
-  30303..30638: 336 photographs, 324 captioned, 53 excluded by the pre-registered dHash screen (Hamming distance <= 10 to
-  any row-group-0 photograph; 3 at distance 0), **271 kept**; id-list SHA-256 `466e37d71c5f95f7…`.
+  30303..30638: 336 photographs, 324 with a usable caption (12 have none and cannot be scored). The original screen
+  (dHash <= 10 against all 336 row-group-0 photographs) flagged 53 look-alikes, not duplicates; a peer review showed
+  this, and **pre-registration Amendment 1** (commit `29043d0`, 2026-10-17, before any fresh-test score) replaced it:
+  dHash <= 10 against the 208 training photographs gives **41 candidates**; a recorded review of each candidate beside
+  its nearest training photograph (`FRESH_TEST_SCREEN_REVIEW`, one reason per id) confirmed **0** as the same object or
+  scene (different objects or blank/low-content frames; the three distance-0 hits are blank frames, not copies). The
+  primary (screened) and secondary (unscreened pool) sets are therefore both the **324** photographs; id-list SHA-256
+  `02e15128fc50ed47…`. The verdict reads a paired bootstrap 95 % interval of the per-image CIDEr-D
+  difference (adapted minus frozen; 2,000 resamples, seed 0).
   Pins: `FRESH_IMAGE_PINS`, `FRESH_TEST_EXCLUDED`, `FRESH_TEST_SIZE`, `FRESH_TEST_IDS_SHA256` in `samples.py`.
 - **Score-once rule.** The fresh test is scored only when every pre-registered setting matches; outputs carry `test_look`
   and `settings_differing`; exploratory runs write `*_exploratory_<n>.json`. The fresh test is scored only under the
@@ -175,7 +182,7 @@ The rows below are the earlier inference-only notebook's runs; they are history 
 - **ROUGE-L.** Now aggregated as `coco-caption` does (best precision and best recall over the references, taken
   separately); the tokenisation is simplified and is not the PTB tokenizer. ROUGE-L values quoted above for blobs
   `2b72c3f7` and `0e4fcb00` (0.329 / 0.364) use the earlier best-per-reference aggregation.
-- CPU build record (2026-10-17, not clean-runtime evidence, not a hosted run): the frozen model captioned the 70 exposed development-test photographs on CPU (6.52 s per photograph): CIDEr-D 0.309, BLEU-4 0.096, ROUGE-L 0.329 under the old best-per-reference aggregation and 0.338 under the coco-caption aggregation now carried (18 of 70 photographs change). A reduced CPU smoke of the regenerated notebook (pinned checkpoint and data, splits cut to 8 / 4 / 4 after Section 4, EPOCHS = 1, so exploratory) ran all 13 code cells: the screen reproduced the 53 pinned exclusions (271 kept), the grid kept 1e-5 and the frozen epoch, Section 8 reported test_look 'not scored (exploratory)' and wrote only *_exploratory_1 outputs. The fresh test was masked in every CPU check (validation and the exposed development test only) and was never captioned or scored locally, so there is no development look to disclose (SCORE_ONCE_RULE item 8). In a runtime, a pre-registered scoring is labelled `pre-registered evaluation (this runtime)`; this section names the run of record. Before scoring, Section 8 checks that the in-memory model is the selected one (learning rate, kept epoch, adapter-tensor digest).
+- CPU build record (2026-10-17, not clean-runtime evidence, not a hosted run): the frozen model captioned the 70 exposed development-test photographs on CPU (6.52 s per photograph): CIDEr-D 0.309, BLEU-4 0.096, ROUGE-L 0.329 under the old best-per-reference aggregation and 0.338 under the coco-caption aggregation now carried (18 of 70 photographs change). A reduced CPU smoke of the regenerated notebook (pinned checkpoint and data, splits cut to 8 / 4 / 4 after Section 4, EPOCHS = 1, so exploratory) ran all 13 code cells: the original screen reproduced its 53 pins (since amended, see above), the grid kept 1e-5 and the frozen epoch, Section 8 reported test_look 'not scored (exploratory)' and wrote only *_exploratory_1 outputs. The fresh test was masked in every CPU check (validation and the exposed development test only) and was never captioned or scored locally, so there is no development look to disclose (SCORE_ONCE_RULE item 8). In a runtime, a pre-registered scoring is labelled `pre-registered evaluation (this runtime)`; this section names the run of record. Before scoring, Section 8 checks that the in-memory model is the selected one (learning rate, kept epoch, adapter-tensor digest).
 
 **Candidate.** The notebook was regenerated at `63912b4` (blob `0e4fcb004ed9`) and that exact blob passed the Colab CLI Tesla T4
 run recorded above (2026-10-08 UTC, 13/13 code cells, 815.9 s, one pass, no restart, 0 errors, default path only), reproducing

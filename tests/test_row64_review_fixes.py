@@ -146,6 +146,22 @@ def test_t64_M1_preregistration_doc_matches_the_module() -> None:
     assert (
         samples.PREREGISTERED_SETTINGS["run_grid"] is True and samples.PREREGISTERED_SETTINGS["epochs"] == 4
     )
+    amendment = doc.split("## Amendment 1 (2026-10-17)", 1)[1]
+    assert "208 training photographs" in amendment and "recorded manual review" in amendment
+    assert (
+        "Secondary:** the full unscreened captioned pool" in amendment
+        and "paired bootstrap 95 %" in amendment
+    )
+    for key in (
+        "weight_decay",
+        "grad_clip",
+        "scheduler",
+        "decoding",
+        "validation_max_new_tokens",
+        "model_revision",
+        "fresh_test_ids_sha256",
+    ):
+        assert key in samples.PREREGISTERED_SETTINGS
 
 
 def test_t64_M1_fresh_test_pins_are_disjoint_and_consistent() -> None:
@@ -153,8 +169,17 @@ def test_t64_M1_fresh_test_pins_are_disjoint_and_consistent() -> None:
     assert len(samples.FRESH_IMAGE_PINS) == 336 and not set(samples.FRESH_IMAGE_PINS) & set(
         samples.IMAGE_PINS
     )
-    assert set(samples.FRESH_TEST_EXCLUDED) <= set(samples.FRESH_IMAGE_PINS)
-    assert len(samples.FRESH_TEST_EXCLUDED) == 53 and samples.FRESH_TEST_SIZE == 324 - 53
+    assert (
+        set(samples.FRESH_TEST_EXCLUDED)
+        <= set(samples.FRESH_TEST_CANDIDATES)
+        <= set(samples.FRESH_IMAGE_PINS)
+    )
+    assert len(samples.FRESH_TEST_UNCAPTIONED) == 12 and samples.FRESH_POOL_SIZE == 336 - 12
+    assert len(samples.FRESH_TEST_CANDIDATES) == 41 and samples.FRESH_TEST_EXCLUDED == ()
+    assert samples.FRESH_POOL_SIZE - len(samples.FRESH_TEST_EXCLUDED) == samples.FRESH_TEST_SIZE
+    assert set(samples.FRESH_TEST_SCREEN_REVIEW) == set(samples.FRESH_TEST_CANDIDATES)
+    assert all(isinstance(ok, bool) and reason for ok, reason in samples.FRESH_TEST_SCREEN_REVIEW.values())
+    assert re.fullmatch(r"[0-9a-f]{64}", samples.FRESH_POOL_IDS_SHA256)
     assert re.fullmatch(r"[0-9a-f]{64}", samples.FRESH_TEST_IDS_SHA256)
 
 
@@ -184,7 +209,7 @@ def test_t64_M1_build_fresh_test_refuses_a_screen_that_disagrees_with_the_pin(
     Image.new("RGB", (32, 32), "grey").save(path)
     annotations = [{"id": i, "captions": ["a"], "text_detected": False} for i in ids]
     monkeypatch.setattr(samples, "FRESH_IMAGE_PINS", {i: ("0" * 64, 1) for i in ids})
-    with pytest.raises(ValueError, match="near-duplicate screen flagged"):
+    with pytest.raises(ValueError, match="the candidate screen found"):
         samples.build_fresh_test(annotations, {i: path for i in ids}, {"29631": path})
 
 
@@ -207,6 +232,10 @@ def _settings(**changes):
         {"run_grid": False},
         {"trainable_decoder_layers": 1},
         {"caption_max_tokens": 40},
+        {"weight_decay": 0.0},
+        {"model_revision": "main"},
+        {"validation_max_new_tokens": 40},
+        {"fresh_test_ids_sha256": "0" * 64},
     ],
 )
 def test_t64_m5_a_changed_setting_never_scores_the_fresh_test(changes, tmp_path: Path) -> None:
@@ -276,7 +305,7 @@ class _Pipe:
 
 
 def _section8(nb: dict, tmp_path: Path, settings: dict, state: str = "abc") -> tuple[dict, list]:
-    source = _cell_with(nb, "look = plan_test_look(prereg, 'outputs', ")
+    source = _cell_with(nb, "selected_state = {")
     calls: list = []
     recs = [
         {"id": f"t{i}", "category": "text" if i % 2 else "no-text", "captions": ["a caption"]}
@@ -304,7 +333,8 @@ def _section8(nb: dict, tmp_path: Path, settings: dict, state: str = "abc") -> t
         "test_records": recs,
         "val_records": recs[:2],
         "fresh_records": fresh,
-        "fresh_report": {"row_group": 2, "screen": {}},
+        "fresh_pool_records": fresh,
+        "fresh_report": {"row_group": 2, "excluded": {}, "uncaptioned": ["30317"]},
         "frozen_test": {**base, "adapted": False},
         "baseline_constant": base,
         "baseline_neighbour": base,
@@ -337,6 +367,11 @@ def _section8(nb: dict, tmp_path: Path, settings: dict, state: str = "abc") -> t
         "adapt_seconds": 1.0,
         "frozen_beats_constant": True,
         "reference_captions": lambda r: r["captions"],
+        "grid_dir": Path("g"),
+        "set_profile": samples.set_profile,
+        "caption_metrics": metrics.caption_metrics,
+        "cider_d": metrics.cider_d,
+        "paired_bootstrap_ci": metrics.paired_bootstrap_ci,
     }
     with contextlib.chdir(tmp_path), contextlib.redirect_stdout(io.StringIO()):
         (tmp_path / "outputs").mkdir(exist_ok=True)
@@ -438,7 +473,7 @@ def test_t64_m6_every_later_section_requires_a_valid_run(nb: dict) -> None:
         "CAPTION_MAX_TOKENS = 30  # @param",
         "baseline_constant = constant_caption_baseline(",
         "RUN_GRID = True  # @param",
-        "look = plan_test_look(prereg",
+        "def fresh_summary(",
         "import csv",
     ):
         assert "require_valid_run()" in _cell_with(nb, marker)
@@ -555,3 +590,44 @@ def test_rule8_section_8_refuses_the_fresh_test_when_the_model_is_not_the_select
     with pytest.raises(RuntimeError, match="not the selected configuration"):
         _section8(nb, tmp_path, _settings(), state="something else")
     assert not (tmp_path / "outputs" / f"{STEM}_evaluation_report.json").exists()
+
+
+def test_round2_paired_bootstrap_interval_reads_the_sign() -> None:
+    up = metrics.paired_bootstrap_ci([0.1, 0.2, 0.15, 0.05, 0.12] * 10)
+    assert up["verdict"] == "adapted above frozen" and 0 < up["low"] <= up["mean"] <= up["high"]
+    flat = metrics.paired_bootstrap_ci([0.3, -0.3, 0.2, -0.2, 0.0] * 10)
+    assert flat["verdict"] == "no difference detected" and flat["low"] < 0 < flat["high"]
+    assert metrics.paired_bootstrap_ci([0.3, -0.3, 0.2] * 5) == metrics.paired_bootstrap_ci(
+        [0.3, -0.3, 0.2] * 5
+    )
+    assert metrics.paired_bootstrap_ci([-0.1] * 20)["verdict"] == "adapted below frozen"
+
+
+def test_round2_section_8_reports_both_fresh_sets_with_intervals(nb: dict, tmp_path: Path) -> None:
+    ns, calls = _section8(nb, tmp_path, _settings())
+    assert (
+        calls.count(("frozen", 5)) == 1 and calls.count(("adapted", 5)) == 1
+    )  # one caption pass serves both sets
+    fresh = ns["evaluation_report_payload"]["fresh_test"]
+    for name in ("primary (screened)", "secondary (unscreened captioned pool)"):
+        assert set(fresh[name]["cider_d_difference_interval"]) >= {"overall", "text", "no-text"}
+        assert fresh[name]["profile"]["n"] == 5
+    assert (
+        fresh["verdict"] == fresh["primary (screened)"]["cider_d_difference_interval"]["overall"]["verdict"]
+    )
+
+
+def test_round2_no_scored_once_wording_and_one_screen_description(nb: dict) -> None:
+    md = _markdown(nb)
+    assert not re.search(r"scored once|score[sd]? (the fresh test |a fresh[^.]*?)?once", md, re.I)
+    assert "near-duplicate screen" not in md
+    assert "41 candidates" in md and "0 confirmed exclusions" in md
+    assert "Compare models within one set, never absolute CIDEr-D across sets" in md
+    assert "practical tolerance" in md
+
+
+def test_round2_exploratory_grid_never_deletes_the_preregistered_grid(nb: dict) -> None:
+    seven = _cell_with(nb, "RUN_GRID = True  # @param")
+    assert "grid_dir = Path(f\"outputs/pix2struct_textcaps_grid{grid_look['suffix']}\")" in seven
+    assert seven.index("grid_look = plan_test_look(prereg") < seven.index("shutil.rmtree(grid_dir")
+    assert "val_max_new_tokens=CAPTION_MAX_TOKENS" in seven and "'history.json'" in seven

@@ -35,6 +35,10 @@ PARAMETER_COUNT = 282_285_696  # 18,879,744 of them train by default (2 decoder 
 DECODER_LAYERS = 12  # text_config num_layers of the caption decoder
 DEFAULT_TRAINABLE_DECODER_LAYERS = 2  # the last two decoder blocks + the decoder's final layer norm
 MAX_EVAL_RECORDS = 2_000
+# Fixed optimiser settings of `adapt` (pre-registered; read by the notebook's preregistered comparison).
+ADAPT_WEIGHT_DECAY = 0.01
+ADAPT_GRAD_CLIP = 1.0
+ADAPT_SCHEDULER = "none"
 MIN_SCORED_RECORDS = 50  # below this a scored set is labelled a small sample
 ARTIFACT_FORMAT = "org.valcorza.pix2struct-textcaps-base.adapter.v1"
 ARTIFACT_FORMAT_VERSION = "1.0"
@@ -583,6 +587,7 @@ class Pix2StructTextCapsPipeline:
         trainable_decoder_layers: int = DEFAULT_TRAINABLE_DECODER_LAYERS,
         seed: int = 0,
         min_gain: float = 0.0,
+        val_max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS,
         progress: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         """Bounded supervised fine-tuning on a validated captioning dataset.
@@ -627,7 +632,7 @@ class Pix2StructTextCapsPipeline:
             param.requires_grad_(name in wanted)
         params = [p for p in model.parameters() if p.requires_grad]
         n_trainable = sum(p.numel() for p in params)
-        optimiser = torch.optim.AdamW(params, lr=lr, weight_decay=0.01)
+        optimiser = torch.optim.AdamW(params, lr=lr, weight_decay=ADAPT_WEIGHT_DECAY)
         device = next(model.parameters()).device
         encoded = self._encode([r["image"] for r in train_checked])
         pairs = [(i, str(c)) for i, r in enumerate(train_checked) for c in r["captions"]]
@@ -638,8 +643,8 @@ class Pix2StructTextCapsPipeline:
             model.eval()
             return {
                 k: v
-                for k, v in self.evaluate(val_checked).items()
-                if k in ("bleu4", "rouge_l", "cider_d", "unigram_f1", "mean_words", "n")
+                for k, v in self.evaluate(val_checked, max_new_tokens=val_max_new_tokens).items()
+                if k in ("bleu4", "rouge_l", "cider_d", "unigram_f1", "mean_words", "n", "predictions")
             }
 
         history: list[dict[str, Any]] = []
@@ -672,7 +677,7 @@ class Pix2StructTextCapsPipeline:
                     out = model(encoder_outputs=(hidden,), attention_mask=mask, labels=labels)
                     optimiser.zero_grad(set_to_none=True)
                     out.loss.backward()
-                    torch.nn.utils.clip_grad_norm_(params, 1.0)
+                    torch.nn.utils.clip_grad_norm_(params, ADAPT_GRAD_CLIP)
                     optimiser.step()
                     losses.append(float(out.loss.detach()))
                 model.eval()
@@ -721,6 +726,7 @@ class Pix2StructTextCapsPipeline:
                 else "final epoch (no validation split)"
             ),
             "min_gain": min_gain,
+            "val_max_new_tokens": val_max_new_tokens,
             "kept_frozen_by_margin": kept_frozen_by_margin,
             "lr": lr,
             "batch_size": batch_size,

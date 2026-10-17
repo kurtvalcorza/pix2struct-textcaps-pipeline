@@ -80,7 +80,8 @@ CODE_MARKERS = (
     "adapted_beats_frozen_exposed = adapted_test['cider_d'] > frozen_test['cider_d']",
     "look = plan_test_look(prereg, 'outputs', 'pix2struct_textcaps')",
     "if look['fresh_test_scored'] and fresh_records:",
-    "fresh_records, fresh_report = build_fresh_test(annotations, fresh_paths, image_paths)",
+    "fresh_records, fresh_pool_records, fresh_report = build_fresh_test(",
+    "paired_bootstrap_ci(diffs)",
     "raise RunInvalidated(",
     # Stage 9: the scenes re-captioned, artifact, reload parity, provenance
     "adapted_scene = evaluation_report(adapted_results, drawn_texts, sample_kind='synthetic')",
@@ -111,7 +112,7 @@ MARKDOWN_MARKERS = (
     "**constant-caption baseline**",
     "**colour-nearest-neighbour baseline**",
     "**CIDEr-D**",
-    "**no dispersion estimate**",
+    "**paired bootstrap 95 % interval**",
     "OCR as a product (the model quotes text inside a caption",
     "**Weight-format note:**",
 )

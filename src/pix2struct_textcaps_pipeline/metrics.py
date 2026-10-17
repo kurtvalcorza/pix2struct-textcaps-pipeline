@@ -28,6 +28,7 @@ through 27 numbers).
 from __future__ import annotations
 
 import math
+import random
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -266,3 +267,41 @@ def colour_neighbour_baseline(
     result = caption_metrics(predictions, _references(records))
     result["baseline"] = f"colour nearest neighbour ({len(train)} training images)"
     return result
+
+
+BOOTSTRAP_RESAMPLES = 2_000
+BOOTSTRAP_SEED = 0
+
+
+def paired_bootstrap_ci(
+    differences: Sequence[float],
+    *,
+    n_boot: int = BOOTSTRAP_RESAMPLES,
+    seed: int = BOOTSTRAP_SEED,
+    level: float = 0.95,
+) -> dict[str, Any]:
+    """Percentile bootstrap interval of the mean of paired per-image differences (e.g. adapted minus frozen
+    CIDEr-D,
+    each image scored once on the whole evaluated set): images are resampled with replacement `n_boot` times
+    with a
+    fixed seed. The verdict reads the interval: above 0, below 0, or no difference detected."""
+    values = [float(d) for d in differences]
+    if not values:
+        raise ValueError("no paired differences to resample")
+    rng = random.Random(seed)
+    n = len(values)
+    means = sorted(sum(values[rng.randrange(n)] for _ in range(n)) / n for _ in range(n_boot))
+    tail = (1.0 - level) / 2.0
+    low = means[int(math.floor(tail * (n_boot - 1)))]
+    high = means[int(math.ceil((1.0 - tail) * (n_boot - 1)))]
+    if low > 0:
+        verdict = "adapted above frozen"
+    elif high < 0:
+        verdict = "adapted below frozen"
+    else:
+        verdict = "no difference detected"
+    mean = sum(values) / n
+    return {
+        "n": n, "mean": mean, "low": low, "high": high, "level": level, "n_boot": n_boot, "seed": seed,
+        "verdict": verdict,
+    }
