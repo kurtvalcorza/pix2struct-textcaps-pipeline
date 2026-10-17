@@ -64,14 +64,14 @@ def _cell_with(nb: dict, marker: str) -> str:
 # --- PST-m4: spec 2.2 everywhere -------------------------------------------------------------------------------------
 
 
-def test_pst_m4_spec_2_2_declared_everywhere(nb: dict) -> None:
-    """PST-m4: metadata, opening cell, registry, validator and generator agree on NOTEBOOK_SPEC 2.2 (§32 item 6)."""
-    assert nb["metadata"]["dimer"]["notebook_spec"] == "2.2"
-    assert build.NOTEBOOK_SPEC == "2.2"
+def test_pst_m4_spec_2_5_declared_everywhere(nb: dict) -> None:
+    """PST-m4 / T64-m2: metadata, opening cell, registry, validator and generator agree on NOTEBOOK_SPEC 2.5."""
+    assert nb["metadata"]["dimer"]["notebook_spec"] == "2.5"
+    assert build.NOTEBOOK_SPEC == "2.5"
     validator = _load("validate_release_assets_review", TOOLS / "validate_release_assets.py")
-    assert validator.NOTEBOOK_SPEC == "2.2"
-    assert "DIMER Notebook Specification 2.2 — **standalone** (§4)" in _src(nb["cells"][0])
-    assert "DIMER Notebook Specification 2.2" in (ROOT / "tutorials" / "README.md").read_text(encoding="utf-8")
+    assert validator.NOTEBOOK_SPEC == "2.5"
+    assert "DIMER Notebook Specification 2.5 — **standalone** (§4)" in _src(nb["cells"][0])
+    assert "DIMER Notebook Specification 2.5" in (ROOT / "tutorials" / "README.md").read_text(encoding="utf-8")
     text = _markdown(nb) + "\n".join(_src(c) for c in _code_cells(nb))
     assert "Specification 2.0" not in text and "NOTEBOOK_SPEC 2.0" not in text
 
@@ -148,7 +148,8 @@ def test_pst_m3_learning_rate_outcome_matches_the_recorded_sweep(nb: dict) -> No
     """PST-m3: the optional-experiment text states the recorded pre-flight outcomes (2e-5 → 0.321, epoch 2; 5e-5 →
     0.340, epoch 4) and no longer predicts an unmeasured overfit."""
     md = _markdown(nb)
-    assert "2e-5 gave 0.321 with **epoch 2** kept" in md and "5e-5 gave **0.340** with epoch 4 kept" in md
+    assert "2e-5 gave 0.321 with **epoch 2** kept" in md and "5e-5 gave 0.340 with epoch 4 kept" in md
+    assert "scored the exposed development test at three rates" in md
     assert "watch the training loss fall while the validation CIDEr-D drops" not in md
     assert "overfits this little data within a few epochs" not in md
     record = (ROOT / "docs" / "release-verification.md").read_text(encoding="utf-8")
@@ -161,7 +162,7 @@ def test_pst_m3_learning_rate_outcome_matches_the_recorded_sweep(nb: dict) -> No
 def test_pst_m5_prerequisites_state_t4_and_cpu_durations(nb: dict) -> None:
     """PST-m5: the Prerequisites give the recorded T4 wall time and a CPU figure labelled as an estimate."""
     prereq = next(_src(c) for c in nb["cells"] if c["cell_type"] == "markdown" and _src(c).startswith("## Prerequisites"))
-    assert "**868.0 s**" in prereq and "Tesla T4" in prereq
+    assert "**815.9 s**" in prereq and "Colab T4 run of blob `0e4fcb00`" in prereq and "868.0" not in prereq
     assert "CPU has not been timed" in prereq and "not a measurement" in prereq
     assert re.search(r"(minutes|hours?)\b.*CPU|CPU.*\b(minutes|hours?)", prereq)
     assert "868.0 s" in (ROOT / "docs" / "release-verification.md").read_text(encoding="utf-8")
@@ -225,8 +226,8 @@ def _imgs(n: int, folder: str = "") -> list[tuple[str, bytes]]:
 
 def _byod_branch(nb: dict) -> str:
     source = _cell_with(nb, "BYOD_PATH = ''  # @param")
-    body = source.split("\nif USE_BYOD:\n", 1)[1].split("\nelse:\n", 1)[0]
-    return textwrap.dedent(body)
+    body = "def load_byod_splits():" + source.split("def load_byod_splits():", 1)[1].split("\n\n\n", 1)[0]
+    return textwrap.dedent(body) + "\nfile_name, records, splits = load_byod_splits()\n"
 
 
 def _run_byod(nb: dict, work: Path, payload: bytes) -> dict:
@@ -244,7 +245,7 @@ def _run_byod(nb: dict, work: Path, payload: bytes) -> dict:
     try:
         ns = {
             "Path": Path, "io": io, "zipfile": zipfile, "shutil": shutil, "MAX_RECORDS": MAX_RECORDS, "MIN_RECORDS": MIN_RECORDS, "SPLIT_SEED": 42,
-            "load_byod_dataset": load_byod_dataset, "split_dataset": split_dataset, "BYOD_PATH": str(zip_path),
+            "load_byod_dataset": load_byod_dataset, "split_dataset": split_dataset, "BYOD_PATH": str(zip_path), "json": json,
             "byod_file": lambda path, kind, suffixes=(): Path(path),
         }
         with contextlib.redirect_stdout(io.StringIO()):

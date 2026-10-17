@@ -139,7 +139,9 @@ def stage_missing_files(
 
 
 def normalize_caption(text: str) -> str:
-    """COCO-caption-style normalisation: lower-case, punctuation removed, whitespace collapsed."""
+    """Simplified caption normalisation (not the PTB tokenizer `coco-caption` uses): lower-case, every
+    non-word
+    character replaced by a space, whitespace collapsed."""
     return " ".join(_PUNCT_RE.sub(" ", text.lower()).split())
 
 
@@ -514,6 +516,7 @@ class Pix2StructTextCapsPipeline:
                 "max_new_tokens": max_new_tokens,
                 "verdict": "measured" if len(checked) >= MIN_SCORED_RECORDS else "measured-small-sample",
                 "adapted": self.adapter is not None,
+                "predictions": {str(r["id"]): c for r, c in zip(checked, predictions, strict=True)},
                 "seconds": round(time.perf_counter() - started, 3),
                 "model_id": MODEL_ID,
                 "model_revision": MODEL_REVISION,
@@ -579,6 +582,7 @@ class Pix2StructTextCapsPipeline:
         batch_size: int = 8,
         trainable_decoder_layers: int = DEFAULT_TRAINABLE_DECODER_LAYERS,
         seed: int = 0,
+        min_gain: float = 0.0,
         progress: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         """Bounded supervised fine-tuning on a validated captioning dataset.
@@ -591,13 +595,19 @@ class Pix2StructTextCapsPipeline:
         end-of-sequence token, decoded with teacher forcing from the decoder start token and scored with the
         model's own cross-entropy (padding ignored); AdamW at a fixed learning rate with gradient clipping at
         1.0, no scheduler. Epoch 0 records the frozen model's validation metrics; the epoch with the highest
-        validation CIDEr-D is kept."""
+        validation CIDEr-D is kept (an exact tie keeps the earlier epoch). With `min_gain` > 0 an adapted
+        epoch is
+        kept only if its validation CIDEr-D beats epoch 0 by at least `min_gain`; otherwise epoch 0 (the
+        frozen
+        weights) is kept and `kept_frozen_by_margin` is True."""
         from .samples import validate_dataset
 
         if isinstance(epochs, bool) or not isinstance(epochs, int) or not 1 <= epochs <= 20:
             raise ValueError("epochs must be an int in 1..20")
         if not (0.0 < lr <= 1e-3):
             raise ValueError("lr must be in (0, 1e-3]")
+        if isinstance(min_gain, bool) or not isinstance(min_gain, (int, float)) or not 0.0 <= min_gain < 1.0:
+            raise ValueError("min_gain must be a number in [0, 1)")
         if isinstance(batch_size, bool) or not isinstance(batch_size, int) or not 1 <= batch_size <= 64:
             raise ValueError("batch_size must be an int in 1..64")
         names = self._trainable_names(trainable_decoder_layers)
@@ -686,6 +696,11 @@ class Pix2StructTextCapsPipeline:
                 param.requires_grad_(False)
             self.adapter = None
             raise
+        frozen_val = history[0]["val"]["cider_d"] if history[0]["val"] else None
+        kept_frozen_by_margin = False
+        below_margin = frozen_val is not None and best_score - frozen_val < min_gain - 1e-12
+        if min_gain > 0 and best_epoch != 0 and below_margin:
+            best_state, best_epoch, kept_frozen_by_margin = initial_state, 0, True
         merged = dict(model.state_dict())
         merged.update(best_state)
         model.load_state_dict(merged, strict=True)
@@ -699,7 +714,14 @@ class Pix2StructTextCapsPipeline:
             "n_total": sum(p.numel() for p in model.parameters()),
             "epochs": epochs,
             "best_epoch": best_epoch,
-            "selection": "highest validation CIDEr-D" if val_checked else "final epoch (no validation split)",
+            "selection": (
+                "highest validation CIDEr-D"
+                + (f", kept only if it beats epoch 0 by >= {min_gain}" if min_gain else "")
+                if val_checked
+                else "final epoch (no validation split)"
+            ),
+            "min_gain": min_gain,
+            "kept_frozen_by_margin": kept_frozen_by_margin,
             "lr": lr,
             "batch_size": batch_size,
             "n_train": len(train_checked),

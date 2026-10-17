@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Generate a STANDALONE DIMER tutorial notebook (NOTEBOOK_SPEC 2.2 §4) from repository sources — /2.2.
+"""Generate a STANDALONE DIMER tutorial notebook (NOTEBOOK_SPEC 2.5 §4) from repository sources — /2.5.
+
+/2.5 (2026-10-17 row-64 review fix cycle) declares NOTEBOOK_SPEC 2.5 and adds: two opt-in template keys,
+``use_notice`` (a DOC17-DOC21 blockquote cell placed right after the header, before any code) and
+``notebook_kind`` (written to ``metadata.dimer.notebook_kind``, KND1); a clean stop for routed cells (an exception
+carrying ``dimer_stop = True`` is shown as its message only, without a traceback, DAT20); and a refusal to write
+the notebook while a carried module differs from the committed HEAD, so ``generated_from.revision`` always names
+a commit that contains the embedded modules.
 
 /2 adds to /1: multi-module packages (one tagged cell per module, topologically ordered, package-relative
 imports removed), template-declared rewrite rules, and extra pinned snapshots (`extra_weights`) for packages
@@ -40,8 +47,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-GENERATOR_VERSION = "build_notebook.py/2.2"
-NOTEBOOK_SPEC = "2.2"
+GENERATOR_VERSION = "build_notebook.py/2.5"
+NOTEBOOK_SPEC = "2.5"
 
 # ST2: default rewrite rule; a template may replace it with its own `rewrites` list. Every rule must
 # match exactly once across the embedded modules, so a silent no-op is impossible.
@@ -316,6 +323,9 @@ while True:
         _send.send(("done",))
     except BaseException as exc:
         signal.signal(signal.SIGINT, signal.SIG_IGN)
+        if getattr(exc, "dimer_stop", False):  # a deliberate stop (e.g. a refused BYOD input): message only
+            _send.send(("stop", str(exc)))
+            continue
         frames = exc.__traceback__.tb_next if exc.__traceback__ is not None else None
         _send.send(("error", "".join(traceback.format_exception(type(exc), exc, frames)), f"{type(exc).__name__}: {exc}"))
 """
@@ -323,6 +333,13 @@ while True:
 
 class IsolatedCellError(RuntimeError):
     """A routed cell raised inside the isolated environment; its traceback is printed above."""
+
+
+class IsolatedCellStop(RuntimeError):
+    """A routed cell stopped on purpose; IPython shows only the message (no traceback), and Run all stops here."""
+
+    def _render_traceback_(self):
+        return [str(self)]
 
 
 class IsolatedRuntime:
@@ -382,6 +399,8 @@ class IsolatedRuntime:
             elif kind == "error":
                 sys.stderr.write(message[1])
                 raise IsolatedCellError(message[2]) from None
+            elif kind == "stop":
+                raise IsolatedCellStop(message[1]) from None
             elif kind == "done":
                 return
 
@@ -485,6 +504,8 @@ def template_contract() -> dict[str, str]:
         "lock": "OPTIONAL (required with isolated_runtime): repository-relative hash-locked requirements compiled from the pins",
         "infrastructure_labels": "OPTIONAL bool (default False): label the setup, carrier and snapshot sections Infrastructure and collapse their cells (NOTEBOOK_SPEC 2.2 GDL11)",
         "guided": "OPTIONAL {'opening': [markdown cells inserted after the header]} (NOTEBOOK_SPEC 2.2 GDL1-GDL4)",
+        "use_notice": "OPTIONAL markdown blockquote placed right after the header, before any code cell (NOTEBOOK_SPEC 2.5 DOC17-DOC21)",
+        "notebook_kind": "OPTIONAL TUTORIAL / DEMO / WORKSHOP / CAPSTONE, written to metadata.dimer.notebook_kind (NOTEBOOK_SPEC 2.5 KND1)",
     }
 
 
@@ -706,6 +727,21 @@ def _head_revision(repo: Path) -> str:
     return out or "uncommitted"
 
 
+def _dirty_carried_modules(repo: Path, template: dict[str, Any]) -> list[str]:
+    """Carried modules whose working-tree text differs from HEAD (empty outside a git checkout)."""
+    pkg_rel = template.get("package_dir", f"src/{template['package']}")
+    dirty = []
+    for module in template.get("modules", ["pipeline.py"]):
+        rel = f"{pkg_rel}/{module}"
+        try:
+            committed = subprocess.check_output(["git", "-C", str(repo), "show", f"HEAD:{rel}"], stderr=subprocess.DEVNULL)
+        except (OSError, subprocess.CalledProcessError):
+            return []
+        if (repo / rel).read_bytes().replace(b"\r\n", b"\n") != committed.replace(b"\r\n", b"\n"):
+            dirty.append(rel)
+    return dirty
+
+
 def recorded_revision(notebook_path: Path) -> str | None:
     """`generated_from.revision` of an existing notebook, or None."""
     if not notebook_path.exists():
@@ -875,6 +911,8 @@ def render(repo: Path, template: dict[str, Any], revision: str | None = None) ->
         f"**This notebook does not demonstrate:** {template['exclusions'].strip()}"
     )
     add(_md(header))
+    if template.get("use_notice"):
+        add(_md(template["use_notice"].strip()))
     for opening in (template.get("guided") or {}).get("opening", []):
         add(_md(opening.format(**fmt)))
 
@@ -939,7 +977,9 @@ def render(repo: Path, template: dict[str, Any], revision: str | None = None) ->
                 "`# dimer: kernel cell`), and it is safe to re-run: a complete environment built from this exact lock is reused "
                 "rather than rebuilt, and a live worker is kept with every variable created so far, so the cells after it keep "
                 "working. To start over, restart the session and choose **Run all**. `DIMER_NOTEBOOK_CI_PREINSTALLED=1` lets an "
-                "executor that has already installed exactly these pins run every cell in its own kernel instead."
+                "executor that has already installed exactly these pins run every cell in its own kernel instead. `DIMER_ISOLATED_ENV` "
+                "overrides the folder the environment is built in (default `dimer_isolated_env_<first 12 hex of the lock digest>` in the "
+                "working directory); it changes only where the environment lives, not what is installed."
             )
         )
         add(_code(_isolated_install(ctx, template, pins_literal), {"cellView": "form", **({"jupyter": {"source_hidden": True}} if labels else {})}))
@@ -1078,6 +1118,7 @@ def render(repo: Path, template: dict[str, Any], revision: str | None = None) ->
             "dimer": {
                 "notebook_profile": template["profile"],
                 "notebook_mode": mode,
+                **({"notebook_kind": template["notebook_kind"]} if template.get("notebook_kind") else {}),
                 "notebook_spec": NOTEBOOK_SPEC,
                 "standalone": True,
                 **({"environment": "isolated hash-locked uv environment; nothing installed into the kernel"} if isolated else {}),
@@ -1124,6 +1165,14 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(f"OK: {out} is up to date ({len(rendered)} bytes)")
         return 0
+    dirty = _dirty_carried_modules(repo, template)
+    if dirty:
+        print(
+            f"REFUSED: carried module(s) {dirty} differ from HEAD; commit them first, so generated_from.revision names "
+            "a commit that contains the embedded modules, then regenerate.",
+            file=sys.stderr,
+        )
+        return 1
     rendered = to_bytes(render(repo, template))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(rendered)

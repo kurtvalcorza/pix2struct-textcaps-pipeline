@@ -153,9 +153,33 @@ The rows below are the earlier inference-only notebook's runs; they are history 
 
 ## Current status
 
+### Row-64 review fix (2026-10-17): pre-registered learning-rate grid and fresh test
+
+- **What touched the old test split.** The default recipe was carried over from the BLIP captioning row, which chose it
+  by comparing configurations on its test split, and that split is these same 70 photographs (test digest
+  `89f298822913dc68…` in both rows). This row's own pre-flight (Kaggle, 2026-09-24, blob `2b72c3f7`) scored them at
+  three learning rates. They are now the **exposed development test**, reported for continuity only.
+- **Pre-registration.** `docs/learning-rate-grid-preregistration.md`, committed alone before any code: learning rate in
+  {1e-5, 2e-5, 5e-5}, everything else fixed; keep 1e-5 unless beaten on validation CIDEr-D by at least 0.02; keep the
+  frozen model unless beaten by at least 0.02; the grid is on by default (`RUN_GRID = True`; estimated about 35 min on a
+  T4, not yet measured).
+- **Fresh test.** Row group 2 of the pinned shard (footer read 2026-10-17: row groups 336/336/336/336/206), ids
+  30303..30638: 336 photographs, 324 captioned, 53 excluded by the pre-registered dHash screen (Hamming distance <= 10 to
+  any row-group-0 photograph; 3 at distance 0), **271 kept**; id-list SHA-256 `466e37d71c5f95f7…`.
+  Pins: `FRESH_IMAGE_PINS`, `FRESH_TEST_EXCLUDED`, `FRESH_TEST_SIZE`, `FRESH_TEST_IDS_SHA256` in `samples.py`.
+- **Score-once rule.** The fresh test is scored only when every pre-registered setting matches; outputs carry `test_look`
+  and `settings_differing`; exploratory runs write `*_exploratory_<n>.json`. The fresh test is scored only under the
+  pre-registered settings; this section records the evaluation and its reproductions.
+- **Recorded pre-registered evaluation:** none yet (`PREREGISTERED_EVALUATION_RECORD = None`). The first hosted T4 run
+  of the new blob with the pre-registered settings is the result; later identical runs are reproductions.
+- **ROUGE-L.** Now aggregated as `coco-caption` does (best precision and best recall over the references, taken
+  separately); the tokenisation is simplified and is not the PTB tokenizer. ROUGE-L values quoted above for blobs
+  `2b72c3f7` and `0e4fcb00` (0.329 / 0.364) use the earlier best-per-reference aggregation.
+- CPU build record (2026-10-17, not clean-runtime evidence, not a hosted run): the frozen model captioned the 70 exposed development-test photographs on CPU (6.52 s per photograph): CIDEr-D 0.309, BLEU-4 0.096, ROUGE-L 0.329 under the old best-per-reference aggregation and 0.338 under the coco-caption aggregation now carried (18 of 70 photographs change). A reduced CPU smoke of the regenerated notebook (pinned checkpoint and data, splits cut to 8 / 4 / 4 after Section 4, EPOCHS = 1, so exploratory) ran all 13 code cells: the screen reproduced the 53 pinned exclusions (271 kept), the grid kept 1e-5 and the frozen epoch, Section 8 reported test_look 'not scored (exploratory)' and wrote only *_exploratory_1 outputs. The fresh test was not captioned or scored locally.
+
 **Candidate.** The notebook was regenerated at `63912b4` (blob `0e4fcb004ed9`) and that exact blob passed the Colab CLI Tesla T4
 run recorded above (2026-10-08 UTC, 13/13 code cells, 815.9 s, one pass, no restart, 0 errors, default path only), reproducing
-the recorded held-out numbers; promotion to Release-grade is a review decision for the exact release revision. The earlier
+the recorded numbers on the 70-photograph split now labelled the exposed development test; promotion to Release-grade is a review decision for the exact release revision. The earlier
 Release-grade record identifies blob `2b72c3f7` (committed at `7eb0691`; re-run at `dc86ec8` on 2026-09-25 with identical held-out
 numbers) only and remains history.
 Any later change to the carried modules or the notebook yields a new blob and returns the status to Candidate.
