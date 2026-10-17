@@ -162,7 +162,8 @@ def test_pst_m3_learning_rate_outcome_matches_the_recorded_sweep(nb: dict) -> No
 def test_pst_m5_prerequisites_state_t4_and_cpu_durations(nb: dict) -> None:
     """PST-m5: the Prerequisites give the recorded T4 wall time and a CPU figure labelled as an estimate."""
     prereq = next(_src(c) for c in nb["cells"] if c["cell_type"] == "markdown" and _src(c).startswith("## Prerequisites"))
-    assert "**815.9 s**" in prereq and "Colab T4 run of blob `0e4fcb00`" in prereq and "868.0" not in prereq
+    assert "**2,036.4 s**" in prereq and "Colab CLI T4 run of 2026-10-17 of blob `07064ffc`" in prereq
+    assert "868.0" not in prereq and "815.9" not in prereq and "35 min" not in prereq
     assert "CPU has not been timed" in prereq and "not a measurement" in prereq
     assert re.search(r"(minutes|hours?)\b.*CPU|CPU.*\b(minutes|hours?)", prereq)
     assert "868.0 s" in (ROOT / "docs" / "release-verification.md").read_text(encoding="utf-8")

@@ -181,9 +181,9 @@ The rows below are the earlier inference-only notebook's runs; they are history 
 - **Recorded pre-registered evaluation (REL13):** the Colab CLI Tesla T4 run of 2026-10-17 15:12–15:46 UTC (commit `e86f270`,
   blob `07064ffc`, Colab account 2; first row of the `E2E` table and the record below). It is **the evaluation of record**;
   any later hosted run with identical pre-registered settings is a **reproduction** and is recorded as such here, whatever
-  its in-notebook label says. The carried constant still reads `PREREGISTERED_EVALUATION_RECORD = None`, so a later run in
-  another runtime will still print `pre-registered evaluation (this runtime)`; setting the constant changes `samples.py` and
-  therefore the notebook blob, and is left to the next regeneration (open follow-up).
+  its in-notebook label says. The carried constant `PREREGISTERED_EVALUATION_RECORD` names this run (set in the requote
+  regeneration of 2026-10-18, a new blob), so a later run of that blob with the pre-registered settings prints
+  `test_look` `reproduction` in any runtime; the notebook's worked answers quote this run (REL13 labels).
 - **ROUGE-L.** Now aggregated as `coco-caption` does (best precision and best recall over the references, taken
   separately); the tokenisation is simplified and is not the PTB tokenizer. ROUGE-L values quoted above for blobs
   `2b72c3f7` and `0e4fcb00` (0.329 / 0.364) use the earlier best-per-reference aggregation.

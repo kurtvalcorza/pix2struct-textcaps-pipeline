@@ -911,9 +911,12 @@ PREREGISTERED_SETTINGS: dict[str, Any] = {
 # A runtime cannot know about other runtimes (SCORE_ONCE_RULE item 8): a pre-registered scoring is
 # labelled for this runtime; docs/release-verification.md names the hosted run of record.
 TEST_LOOKS = ("pre-registered evaluation (this runtime)", "reproduction", "not scored (exploratory)")
-# The release-verification record of the first pre-registered hosted run once one exists (None: none recorded
-# yet). While it is set, every later run with the pre-registered settings is labelled a reproduction.
-PREREGISTERED_EVALUATION_RECORD: str | None = None
+# The release-verification record of the first pre-registered hosted run (None: none recorded yet). While
+# it is set, every later run with the pre-registered settings is labelled a reproduction of the pre-registered
+# evaluation.
+PREREGISTERED_EVALUATION_RECORD: str | None = (
+    "docs/release-verification.md: Colab CLI Tesla T4 run of 2026-10-17, commit e86f270, blob 07064ffc"
+)
 
 
 def _sha256_bytes(data: bytes) -> str:

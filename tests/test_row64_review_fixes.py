@@ -253,7 +253,7 @@ def test_t64_m5_a_bool_never_stands_in_for_a_number() -> None:
 def test_t64_m5_identical_reruns_are_reproductions(tmp_path: Path) -> None:
     check = samples.check_preregistration(_settings())
     assert check["preregistered"] is True
-    first = samples.plan_test_look(check, tmp_path, STEM)
+    first = samples.plan_test_look(check, tmp_path, STEM, recorded_evaluation="")
     assert first == {
         **first,
         "test_look": "pre-registered evaluation (this runtime)",
@@ -267,6 +267,29 @@ def test_t64_m5_identical_reruns_are_reproductions(tmp_path: Path) -> None:
         check, tmp_path / "fresh-runtime", STEM, recorded_evaluation="release-verification row"
     )
     assert later["test_look"] == "reproduction" and later["suffix"] == ""
+
+
+def test_t64_m5_runs_after_the_recorded_hosted_evaluation_are_reproductions(tmp_path: Path) -> None:
+    """SCORE_ONCE_RULE item 3: the 2026-10-17 hosted T4 run (commit e86f270, blob 07064ffc) is the evaluation of record,
+    so a later run with identical settings in a fresh runtime labels itself a reproduction by default."""
+    record = samples.PREREGISTERED_EVALUATION_RECORD
+    assert record and "2026-10-17" in record and "e86f270" in record and "07064ffc" in record
+    check = samples.check_preregistration(_settings())
+    look = samples.plan_test_look(check, tmp_path / "later-runtime", STEM)
+    assert look["test_look"] == "reproduction" and look["suffix"] == "" and look["fresh_test_scored"] is True
+    changed = samples.check_preregistration(_settings(epochs=3))
+    assert samples.plan_test_look(changed, tmp_path / "later-runtime", STEM)["fresh_test_scored"] is False
+
+
+def test_requote_cells_quote_the_hosted_record(nb: dict) -> None:
+    """Row-64 requote: the notebook quotes the 2026-10-17 hosted evaluation of record, not the 2026-10-08 run."""
+    md = _markdown(nb)
+    for stale in ("0e4fcb00", "63912b4", "815.9", "354.9", "35 min", "0.329", "0.364", "have no recorded run"):
+        assert stale not in md, stale
+    for quoted in ("2,036.4 s", "348.8 / 349.1 / 349.8 s", "ROUGE-L 0.338 → 0.372", "0.266 → adapted 0.301",
+                   "[0.004, 0.068]", "0.219 → 0.268 → **0.276** → 0.227 → 0.238",
+                   "0.219 → 0.232 → 0.203 → 0.250 → **0.257**", "12 uncaptioned photographs not scored"):
+        assert quoted in md, quoted
 
 
 def test_t64_m5_missing_or_unknown_settings_are_refused() -> None:
@@ -533,7 +556,7 @@ def test_t64_m1_quoted_numbers_name_their_blob(nb: dict) -> None:
         assert stale not in md, stale
     for answer in re.findall(r"<details><summary>Check your reasoning</summary>(.*?)</details>", md, re.S):
         if re.search(r"\d\.\d{3}", answer):
-            assert "0e4fcb00" in answer or "2b72c3f7" in answer, answer[:80]
+            assert "07064ffc" in answer or "2b72c3f7" in answer, answer[:80]
 
 
 def test_t64_m4_dat9_wording(nb: dict) -> None:
