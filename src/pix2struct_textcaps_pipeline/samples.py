@@ -791,7 +791,9 @@ PREREGISTERED_SETTINGS: dict[str, Any] = {
     "lr_margin": LR_MARGIN,
     "frozen_margin": FROZEN_MARGIN,
 }
-TEST_LOOKS = ("pre-registered evaluation", "reproduction", "not scored (exploratory)")
+# A runtime cannot know about other runtimes (SCORE_ONCE_RULE item 8): a pre-registered scoring is
+# labelled for this runtime; docs/release-verification.md names the hosted run of record.
+TEST_LOOKS = ("pre-registered evaluation (this runtime)", "reproduction", "not scored (exploratory)")
 # The release-verification record of the first pre-registered hosted run once one exists (None: none recorded
 # yet). While it is set, every later run with the pre-registered settings is labelled a reproduction.
 PREREGISTERED_EVALUATION_RECORD: str | None = None

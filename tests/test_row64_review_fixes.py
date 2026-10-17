@@ -227,7 +227,7 @@ def test_t64_m5_identical_reruns_are_reproductions(tmp_path: Path) -> None:
     first = samples.plan_test_look(check, tmp_path, STEM)
     assert first == {
         **first,
-        "test_look": "pre-registered evaluation",
+        "test_look": "pre-registered evaluation (this runtime)",
         "suffix": "",
         "fresh_test_scored": True,
     }
@@ -247,9 +247,19 @@ def test_t64_m5_missing_or_unknown_settings_are_refused() -> None:
         samples.check_preregistration(settings)
 
 
+def _make_pipe(calls, state):
+    pipe = _Pipe(calls, "adapted")
+    pipe.state = state
+    return pipe
+
+
 class _Pipe:
     def __init__(self, calls, label):
-        self.calls, self.label, self.adapter = calls, label, {"best_epoch": 4}
+        self.calls, self.label, self.adapter = calls, label, {"best_epoch": 4, "lr": 1e-5}
+        self.state = "abc"
+
+    def adapter_state_sha256(self):
+        return self.state
 
     def evaluate(self, records, max_new_tokens=30):
         self.calls.append((self.label, len(records)))
@@ -265,7 +275,7 @@ class _Pipe:
         }
 
 
-def _section8(nb: dict, tmp_path: Path, settings: dict) -> tuple[dict, list]:
+def _section8(nb: dict, tmp_path: Path, settings: dict, state: str = "abc") -> tuple[dict, list]:
     source = _cell_with(nb, "look = plan_test_look(prereg, 'outputs', ")
     calls: list = []
     recs = [
@@ -290,7 +300,7 @@ def _section8(nb: dict, tmp_path: Path, settings: dict) -> tuple[dict, list]:
         "require_valid_run": lambda: None,
         "plan_test_look": samples.plan_test_look,
         "prereg": samples.check_preregistration(settings),
-        "pipe": _Pipe(calls, "adapted"),
+        "pipe": _make_pipe(calls, state),
         "test_records": recs,
         "val_records": recs[:2],
         "fresh_records": fresh,
@@ -322,7 +332,7 @@ def _section8(nb: dict, tmp_path: Path, settings: dict) -> tuple[dict, list]:
         "dataset_manifests": {},
         "disjoint": {},
         "categories": {},
-        "grid_runs": {},
+        "grid_runs": {1e-5: {"state_sha256": "abc", "result": {"history": []}}},
         "selection": {},
         "adapt_seconds": 1.0,
         "frozen_beats_constant": True,
@@ -353,7 +363,10 @@ def test_t64_m5_section_8_scores_the_fresh_test_once_under_the_preregistration(
     ns, calls = _section8(nb, tmp_path, _settings())
     assert calls.count(("frozen", 5)) == 1 and calls.count(("adapted", 5)) == 1
     report = json.loads((tmp_path / "outputs" / f"{STEM}_evaluation_report.json").read_text(encoding="utf-8"))
-    assert report["test_look"] == "pre-registered evaluation" and report["settings_differing"] == []
+    assert (
+        report["test_look"] == "pre-registered evaluation (this runtime)"
+        and report["settings_differing"] == []
+    )
     ns, calls = _section8(nb, tmp_path, _settings())
     assert ns["evaluation_report_payload"]["test_look"] == "reproduction"
     assert (tmp_path / "outputs" / f"{STEM}_evaluation_report_reproduction_1.json").is_file()
@@ -534,3 +547,11 @@ def test_t64_M1_adapt_keeps_the_frozen_epoch_unless_beaten_by_the_margin(tmp_pat
         assert result["best_epoch"] == expected_epoch and result["kept_frozen_by_margin"] is kept_frozen
         changed = any(not (v == before[k]).all() for k, v in pipe._model.state_dict().items())
         assert changed is (not kept_frozen)
+
+
+def test_rule8_section_8_refuses_the_fresh_test_when_the_model_is_not_the_selected_one(
+    nb: dict, tmp_path: Path
+) -> None:
+    with pytest.raises(RuntimeError, match="not the selected configuration"):
+        _section8(nb, tmp_path, _settings(), state="something else")
+    assert not (tmp_path / "outputs" / f"{STEM}_evaluation_report.json").exists()

@@ -735,6 +735,20 @@ class Pix2StructTextCapsPipeline:
 
     # ---- artifacts ------------------------------------------------------------------------------------
 
+    def adapter_state_sha256(self) -> str:
+        """SHA-256 over the adapter's trainable tensors as they are in the model now (sorted names,
+        float32 bytes): lets a caller check that the in-memory model is the selected adapted model before
+        scoring with it."""
+        if self.adapter is None:
+            raise ValueError("no adapter: the pipeline holds the frozen base")
+        model, _ = self._require_model()
+        names = set(self.adapter["trainable_names"])
+        digest = hashlib.sha256()
+        for name, tensor in sorted((k, v) for k, v in model.state_dict().items() if k in names):
+            digest.update(name.encode("utf-8"))
+            digest.update(tensor.detach().float().cpu().contiguous().numpy().tobytes())
+        return digest.hexdigest()
+
     def save_artifact(self, output_dir: str | Path, metadata: Mapping[str, Any] | None = None) -> Path:
         """Write the adapted decoder-block and final-norm tensors as safetensors plus a base manifest."""
         if self.adapter is None:
