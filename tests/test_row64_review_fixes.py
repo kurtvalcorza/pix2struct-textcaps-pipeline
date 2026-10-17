@@ -421,10 +421,9 @@ def test_t64_m5_section_8_scores_the_fresh_test_once_under_the_preregistration(
     ns, calls = _section8(nb, tmp_path, _settings())
     assert calls.count(("frozen", 5)) == 1 and calls.count(("adapted", 5)) == 1
     report = json.loads((tmp_path / "outputs" / f"{STEM}_evaluation_report.json").read_text(encoding="utf-8"))
-    assert (
-        report["test_look"] == "pre-registered evaluation (this runtime)"
-        and report["settings_differing"] == []
-    )
+    # The 2026-10-17 hosted run is the recorded evaluation (PREREGISTERED_EVALUATION_RECORD), so a first run in a
+    # fresh runtime is a reproduction of it and still writes the canonical report.
+    assert report["test_look"] == "reproduction" and report["settings_differing"] == []
     ns, calls = _section8(nb, tmp_path, _settings())
     assert ns["evaluation_report_payload"]["test_look"] == "reproduction"
     assert (tmp_path / "outputs" / f"{STEM}_evaluation_report_reproduction_1.json").is_file()
