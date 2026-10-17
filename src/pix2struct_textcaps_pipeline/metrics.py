@@ -5,15 +5,20 @@ captioning result is normally read by, over a set of records with several refere
 
 - **BLEU-4** (Papineni et al. 2002): corpus-level, clipped n-gram precision for n = 1..4 with geometric mean
   and brevity penalty against the closest reference length — the `coco-caption` convention.
-- **ROUGE-L** (Lin 2004): per image the F-measure (beta = 1.2, as in `coco-caption`) of the longest common
-  subsequence against the best-matching reference, averaged over images.
+- **ROUGE-L** (Lin 2004): per image the longest-common-subsequence F-measure (beta = 1.2) built, as in
+  `coco-caption`, from the **best precision and the best recall over the references taken separately**,
+  averaged over images.
 - **CIDEr-D** (Vedantam et al. 2015): TF-IDF-weighted n-gram cosine similarity for n = 1..4 with the
   Gaussian length penalty (sigma = 6) and clipping of candidate counts to the reference counts, averaged over
   references and n, scaled by 10. The document frequencies are computed over the references of the evaluated
   set, so a score is comparable only across systems evaluated on the same records (which is how it is used
   here: frozen vs. adapted vs. baselines on the same test split).
 
-All three use COCO-style normalisation (`normalize_caption`: lower-case, punctuation removed). Two baselines a
+All three use a **simplified tokenisation, not the PTB tokenizer** that `coco-caption` runs
+(`normalize_caption`:
+lower-case, every non-word character replaced by a space, so `Campbell's` becomes `campbell s` and `T-shirt`
+becomes
+`t shirt`); absolute values therefore differ from `pycocoevalcap` on the same captions. Two baselines a
 fine-tuned model must beat: **constant caption** (the training caption that scores best against all other
 training references — the corpus medoid, one string for every image) and **colour nearest neighbour** (the
 caption of the training image whose 3x3 mean-colour grid is closest — a lookup that knows the image only
@@ -23,6 +28,7 @@ through 27 numbers).
 from __future__ import annotations
 
 import math
+import random
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -42,7 +48,8 @@ METRIC_DEFINITIONS = {
         "the brevity penalty against the closest reference length; in 0..1"
     ),
     "rouge_l": (
-        "mean over images of the LCS-based F-measure (beta 1.2) against the best-matching reference; in 0..1"
+        "mean over images of the LCS-based F-measure (beta 1.2) from the best precision and the best "
+        "recall over the references taken separately (coco-caption aggregation); in 0..1"
     ),
     "cider_d": (
         "mean over images of the CIDEr-D consensus score: TF-IDF-weighted 1..4-gram cosine similarity to the "
@@ -106,17 +113,21 @@ def _lcs(a: Sequence[str], b: Sequence[str]) -> int:
 
 
 def rouge_l(prediction: str, references: Sequence[str]) -> float:
-    """LCS F-measure (beta 1.2) against the best-matching reference."""
+    """LCS F-measure (beta 1.2) as `coco-caption` aggregates it: the best LCS precision and the best LCS
+    recall over
+    the references are taken separately and then combined (not the best per-reference F)."""
     hyp = caption_tokens(prediction)
-    best = 0.0
+    best_precision = best_recall = 0.0
     for reference in references:
         ref = caption_tokens(reference)
         lcs = _lcs(hyp, ref)
         if lcs == 0:
             continue
-        precision, recall = lcs / len(hyp), lcs / len(ref)
-        best = max(best, (1 + ROUGE_BETA**2) * precision * recall / (recall + ROUGE_BETA**2 * precision))
-    return best
+        best_precision = max(best_precision, lcs / len(hyp))
+        best_recall = max(best_recall, lcs / len(ref))
+    if best_precision == 0.0 or best_recall == 0.0:
+        return 0.0
+    return (1 + ROUGE_BETA**2) * best_precision * best_recall / (best_recall + ROUGE_BETA**2 * best_precision)
 
 
 def _document_frequencies(references: Sequence[Sequence[str]]) -> list[Counter[tuple[str, ...]]]:
@@ -256,3 +267,41 @@ def colour_neighbour_baseline(
     result = caption_metrics(predictions, _references(records))
     result["baseline"] = f"colour nearest neighbour ({len(train)} training images)"
     return result
+
+
+BOOTSTRAP_RESAMPLES = 2_000
+BOOTSTRAP_SEED = 0
+
+
+def paired_bootstrap_ci(
+    differences: Sequence[float],
+    *,
+    n_boot: int = BOOTSTRAP_RESAMPLES,
+    seed: int = BOOTSTRAP_SEED,
+    level: float = 0.95,
+) -> dict[str, Any]:
+    """Percentile bootstrap interval of the mean of paired per-image differences (e.g. adapted minus frozen
+    CIDEr-D,
+    each image scored once on the whole evaluated set): images are resampled with replacement `n_boot` times
+    with a
+    fixed seed. The verdict reads the interval: above 0, below 0, or no difference detected."""
+    values = [float(d) for d in differences]
+    if not values:
+        raise ValueError("no paired differences to resample")
+    rng = random.Random(seed)
+    n = len(values)
+    means = sorted(sum(values[rng.randrange(n)] for _ in range(n)) / n for _ in range(n_boot))
+    tail = (1.0 - level) / 2.0
+    low = means[int(math.floor(tail * (n_boot - 1)))]
+    high = means[int(math.ceil((1.0 - tail) * (n_boot - 1)))]
+    if low > 0:
+        verdict = "adapted above frozen"
+    elif high < 0:
+        verdict = "adapted below frozen"
+    else:
+        verdict = "no difference detected"
+    mean = sum(values) / n
+    return {
+        "n": n, "mean": mean, "low": low, "high": high, "level": level, "n_boot": n_boot, "seed": seed,
+        "verdict": verdict,
+    }

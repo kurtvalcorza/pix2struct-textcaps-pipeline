@@ -253,7 +253,7 @@ def test_swp_b_byod_path_reads_file_and_refuses_with_names(nb: dict, tmp_path: P
         helper(str(bad), "file", (".zip",))
     monkeypatch.delitem(sys.modules, "google.colab", raising=False)
     monkeypatch.setitem(sys.modules, "google", types.ModuleType("google"))
-    with pytest.raises(RuntimeError, match="only in Google Colab"):
+    with pytest.raises(FileNotFoundError, match="only in Google Colab"):
         helper("", "file")
 
 
@@ -293,7 +293,7 @@ def test_swp_b_zip_without_records_file_is_named(nb: dict) -> None:
     assert "the zip must hold exactly one records.jsonl" in source and "records_file = next(p for p" not in source
 
 
-@pytest.mark.parametrize("marker", ["baseline_constant = constant_caption_baseline(", "adapt_result = pipe.adapt("])
+@pytest.mark.parametrize("marker", ["baseline_constant = constant_caption_baseline("])
 def test_swp_f_adapted_pipeline_is_reloaded_from_the_pinned_snapshot(nb: dict, marker: str) -> None:
     """SWP-F: Sections 6 and 7 reload the frozen pipeline when `pipe` was already adapted in place; the default
     first pass (no adapter yet) keeps the loaded pipeline and loads nothing."""

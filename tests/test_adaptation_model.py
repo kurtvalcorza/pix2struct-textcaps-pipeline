@@ -135,7 +135,8 @@ def test_one_epoch_adaptation_scope_and_artifact_round_trip(kind, pipe, records,
     if kind == "real":
         assert result["n_trainable"] == REAL_ONE_BLOCK_TRAINABLE
     assert result["history"][0]["note"] == "frozen model" and result["history"][1]["train_loss"] > 0.0
-    expected_val = {"bleu4", "rouge_l", "cider_d", "unigram_f1", "mean_words", "n"}
+    # per-image validation captions are kept (row-64 round 2)
+    expected_val = {"bleu4", "rouge_l", "cider_d", "unigram_f1", "mean_words", "n", "predictions"}
     assert set(result["history"][1]["val"]) == expected_val
     artifact = pipe.save_artifact(tmp_path / "adapter", {"note": "test"})
     manifest = json.loads((artifact / "manifest.json").read_text(encoding="utf-8"))

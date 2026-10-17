@@ -35,6 +35,10 @@ PARAMETER_COUNT = 282_285_696  # 18,879,744 of them train by default (2 decoder 
 DECODER_LAYERS = 12  # text_config num_layers of the caption decoder
 DEFAULT_TRAINABLE_DECODER_LAYERS = 2  # the last two decoder blocks + the decoder's final layer norm
 MAX_EVAL_RECORDS = 2_000
+# Fixed optimiser settings of `adapt` (pre-registered; read by the notebook's preregistered comparison).
+ADAPT_WEIGHT_DECAY = 0.01
+ADAPT_GRAD_CLIP = 1.0
+ADAPT_SCHEDULER = "none"
 MIN_SCORED_RECORDS = 50  # below this a scored set is labelled a small sample
 ARTIFACT_FORMAT = "org.valcorza.pix2struct-textcaps-base.adapter.v1"
 ARTIFACT_FORMAT_VERSION = "1.0"
@@ -139,7 +143,9 @@ def stage_missing_files(
 
 
 def normalize_caption(text: str) -> str:
-    """COCO-caption-style normalisation: lower-case, punctuation removed, whitespace collapsed."""
+    """Simplified caption normalisation (not the PTB tokenizer `coco-caption` uses): lower-case, every
+    non-word
+    character replaced by a space, whitespace collapsed."""
     return " ".join(_PUNCT_RE.sub(" ", text.lower()).split())
 
 
@@ -514,6 +520,7 @@ class Pix2StructTextCapsPipeline:
                 "max_new_tokens": max_new_tokens,
                 "verdict": "measured" if len(checked) >= MIN_SCORED_RECORDS else "measured-small-sample",
                 "adapted": self.adapter is not None,
+                "predictions": {str(r["id"]): c for r, c in zip(checked, predictions, strict=True)},
                 "seconds": round(time.perf_counter() - started, 3),
                 "model_id": MODEL_ID,
                 "model_revision": MODEL_REVISION,
@@ -579,6 +586,8 @@ class Pix2StructTextCapsPipeline:
         batch_size: int = 8,
         trainable_decoder_layers: int = DEFAULT_TRAINABLE_DECODER_LAYERS,
         seed: int = 0,
+        min_gain: float = 0.0,
+        val_max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS,
         progress: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         """Bounded supervised fine-tuning on a validated captioning dataset.
@@ -591,13 +600,19 @@ class Pix2StructTextCapsPipeline:
         end-of-sequence token, decoded with teacher forcing from the decoder start token and scored with the
         model's own cross-entropy (padding ignored); AdamW at a fixed learning rate with gradient clipping at
         1.0, no scheduler. Epoch 0 records the frozen model's validation metrics; the epoch with the highest
-        validation CIDEr-D is kept."""
+        validation CIDEr-D is kept (an exact tie keeps the earlier epoch). With `min_gain` > 0 an adapted
+        epoch is
+        kept only if its validation CIDEr-D beats epoch 0 by at least `min_gain`; otherwise epoch 0 (the
+        frozen
+        weights) is kept and `kept_frozen_by_margin` is True."""
         from .samples import validate_dataset
 
         if isinstance(epochs, bool) or not isinstance(epochs, int) or not 1 <= epochs <= 20:
             raise ValueError("epochs must be an int in 1..20")
         if not (0.0 < lr <= 1e-3):
             raise ValueError("lr must be in (0, 1e-3]")
+        if isinstance(min_gain, bool) or not isinstance(min_gain, (int, float)) or not 0.0 <= min_gain < 1.0:
+            raise ValueError("min_gain must be a number in [0, 1)")
         if isinstance(batch_size, bool) or not isinstance(batch_size, int) or not 1 <= batch_size <= 64:
             raise ValueError("batch_size must be an int in 1..64")
         names = self._trainable_names(trainable_decoder_layers)
@@ -617,7 +632,7 @@ class Pix2StructTextCapsPipeline:
             param.requires_grad_(name in wanted)
         params = [p for p in model.parameters() if p.requires_grad]
         n_trainable = sum(p.numel() for p in params)
-        optimiser = torch.optim.AdamW(params, lr=lr, weight_decay=0.01)
+        optimiser = torch.optim.AdamW(params, lr=lr, weight_decay=ADAPT_WEIGHT_DECAY)
         device = next(model.parameters()).device
         encoded = self._encode([r["image"] for r in train_checked])
         pairs = [(i, str(c)) for i, r in enumerate(train_checked) for c in r["captions"]]
@@ -628,8 +643,8 @@ class Pix2StructTextCapsPipeline:
             model.eval()
             return {
                 k: v
-                for k, v in self.evaluate(val_checked).items()
-                if k in ("bleu4", "rouge_l", "cider_d", "unigram_f1", "mean_words", "n")
+                for k, v in self.evaluate(val_checked, max_new_tokens=val_max_new_tokens).items()
+                if k in ("bleu4", "rouge_l", "cider_d", "unigram_f1", "mean_words", "n", "predictions")
             }
 
         history: list[dict[str, Any]] = []
@@ -662,7 +677,7 @@ class Pix2StructTextCapsPipeline:
                     out = model(encoder_outputs=(hidden,), attention_mask=mask, labels=labels)
                     optimiser.zero_grad(set_to_none=True)
                     out.loss.backward()
-                    torch.nn.utils.clip_grad_norm_(params, 1.0)
+                    torch.nn.utils.clip_grad_norm_(params, ADAPT_GRAD_CLIP)
                     optimiser.step()
                     losses.append(float(out.loss.detach()))
                 model.eval()
@@ -686,6 +701,11 @@ class Pix2StructTextCapsPipeline:
                 param.requires_grad_(False)
             self.adapter = None
             raise
+        frozen_val = history[0]["val"]["cider_d"] if history[0]["val"] else None
+        kept_frozen_by_margin = False
+        below_margin = frozen_val is not None and best_score - frozen_val < min_gain - 1e-12
+        if min_gain > 0 and best_epoch != 0 and below_margin:
+            best_state, best_epoch, kept_frozen_by_margin = initial_state, 0, True
         merged = dict(model.state_dict())
         merged.update(best_state)
         model.load_state_dict(merged, strict=True)
@@ -699,7 +719,15 @@ class Pix2StructTextCapsPipeline:
             "n_total": sum(p.numel() for p in model.parameters()),
             "epochs": epochs,
             "best_epoch": best_epoch,
-            "selection": "highest validation CIDEr-D" if val_checked else "final epoch (no validation split)",
+            "selection": (
+                "highest validation CIDEr-D"
+                + (f", kept only if it beats epoch 0 by >= {min_gain}" if min_gain else "")
+                if val_checked
+                else "final epoch (no validation split)"
+            ),
+            "min_gain": min_gain,
+            "val_max_new_tokens": val_max_new_tokens,
+            "kept_frozen_by_margin": kept_frozen_by_margin,
             "lr": lr,
             "batch_size": batch_size,
             "n_train": len(train_checked),
@@ -712,6 +740,20 @@ class Pix2StructTextCapsPipeline:
         return dict(self.adapter)
 
     # ---- artifacts ------------------------------------------------------------------------------------
+
+    def adapter_state_sha256(self) -> str:
+        """SHA-256 over the adapter's trainable tensors as they are in the model now (sorted names,
+        float32 bytes): lets a caller check that the in-memory model is the selected adapted model before
+        scoring with it."""
+        if self.adapter is None:
+            raise ValueError("no adapter: the pipeline holds the frozen base")
+        model, _ = self._require_model()
+        names = set(self.adapter["trainable_names"])
+        digest = hashlib.sha256()
+        for name, tensor in sorted((k, v) for k, v in model.state_dict().items() if k in names):
+            digest.update(name.encode("utf-8"))
+            digest.update(tensor.detach().float().cpu().contiguous().numpy().tobytes())
+        return digest.hexdigest()
 
     def save_artifact(self, output_dir: str | Path, metadata: Mapping[str, Any] | None = None) -> Path:
         """Write the adapted decoder-block and final-norm tensors as safetensors plus a base manifest."""

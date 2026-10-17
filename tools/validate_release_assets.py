@@ -1,6 +1,6 @@
 """Static release-asset validation for the Pix2Struct TextCaps-base DIMER pipeline.
 
-Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.2 §4), the tutorial
+Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.5 §4), the tutorial
 registry, model card, README, STATUS.md and weight documentation for source conformance and
 cross-document identity consistency, and runs the generator parity checks (PAR1–PAR3).
 
@@ -34,8 +34,8 @@ BYOD_GATES = ("USE_BYOD",)
 EXPECTED_OUTPUTS = (
     "outputs/pix2struct_textcaps_train.jsonl",
     "outputs/pix2struct_textcaps_input_manifest.json",
-    "outputs/pix2struct_textcaps_evaluation_report.json",
-    "outputs/pix2struct_textcaps_captions.csv",
+    "outputs/pix2struct_textcaps_evaluation_report",  # + test_look suffix (score-once rule)
+    "outputs/pix2struct_textcaps_captions",
     "outputs/pix2struct_textcaps_adapter",
     "outputs/pix2struct_textcaps_result.json",
 )
@@ -47,7 +47,7 @@ CODE_MARKERS = (
     "splits = build_sample_dataset(annotations, seed=SPLIT_SEED, image_paths=image_paths)",
     "records = load_byod_dataset(records_file)",
     "dataset_manifests = {name: validate_dataset(part) for name, part in splits.items()}",
-    "disjoint = check_split_disjoint(splits)",
+    "disjoint = check_split_disjoint({**splits,",
     "write_dataset_jsonl(splits['train'], 'outputs/pix2struct_textcaps_train.jsonl')",
     # Stage 5: ceilings, the inference contract with its manifest, probe, sanity checks and drawn-text recall
     "ceilings = {'MIN_IMAGE_SIDE': MIN_IMAGE_SIDE, 'MAX_IMAGE_SIDE': MAX_IMAGE_SIDE, 'MAX_PATCHES': MAX_PATCHES, 'MAX_PREFIX_CHARS': MAX_PREFIX_CHARS, 'MAX_NEW_TOKENS': MAX_NEW_TOKENS, 'DEFAULT_MAX_NEW_TOKENS': DEFAULT_MAX_NEW_TOKENS, 'DECODING': DECODING, 'MIN_RECORDS': MIN_RECORDS, 'MAX_RECORDS': MAX_RECORDS, 'MIN_CAPTIONS': MIN_CAPTIONS, 'MAX_CAPTION_CHARS': MAX_CAPTION_CHARS}",
@@ -61,19 +61,28 @@ CODE_MARKERS = (
     "baseline_constant = constant_caption_baseline(train_records, test_records)",
     "baseline_neighbour = colour_neighbour_baseline(train_records, test_records)",
     "frozen_test = pipe.evaluate(test_records, max_new_tokens=CAPTION_MAX_TOKENS)",
-    "scores = cider_d([predict(r) for r in records], [reference_captions(r) for r in records])",
+    "scores = cider_d([predictions[r['id']] for r in records], [reference_captions(r) for r in records])",
     "frozen_beats_constant = frozen_test['cider_d'] > baseline_constant['cider_d']",
     "pipe = Pix2StructTextCapsPipeline.from_pretrained(weights_dir=WEIGHTS_DIR)",
     "BYOD_PATH = ''",
     # Stage 7: bounded fine-tuning with explicit hyperparameters
-    "adapt_result = pipe.adapt(",
+    "result = candidate.adapt(",
+    "seed=ADAPT_SEED, min_gain=FROZEN_MARGIN",
+    "RUN_GRID = True",
+    "selection = select_learning_rate(",
+    "prereg = check_preregistration(run_settings)",
     "trainable_decoder_layers=TRAINABLE_DECODER_LAYERS",
-    "lr=LEARNING_RATE",
+    "lr=lr, batch_size=BATCH_SIZE",
     # Stage 8: held-out evaluation, comparison, recorded (not asserted) gain
     "adapted_test = pipe.evaluate(test_records, max_new_tokens=CAPTION_MAX_TOKENS)",
     "adapted_val = pipe.evaluate(val_records, max_new_tokens=CAPTION_MAX_TOKENS)",
     "'delta_vs_frozen'",
-    "adapted_beats_frozen = adapted_test['cider_d'] > frozen_test['cider_d']",
+    "adapted_beats_frozen_exposed = adapted_test['cider_d'] > frozen_test['cider_d']",
+    "look = plan_test_look(prereg, 'outputs', 'pix2struct_textcaps')",
+    "if look['fresh_test_scored'] and fresh_records:",
+    "fresh_records, fresh_pool_records, fresh_report = build_fresh_test(",
+    "paired_bootstrap_ci(diffs)",
+    "raise RunInvalidated(",
     # Stage 9: the scenes re-captioned, artifact, reload parity, provenance
     "adapted_scene = evaluation_report(adapted_results, drawn_texts, sample_kind='synthetic')",
     "writer.writerow(['image', 'frozen_caption', 'adapted_caption', 'adapted_new_tokens', 'drawn_text'])",
@@ -82,7 +91,7 @@ CODE_MARKERS = (
     "assert parity['identical_captions'] == parity['of']",
     "weight_entry = next(entry for entry in MANIFEST['files'] if entry['path'] == WEIGHT_FILE)",
     "'weight_format': 'SafeTensors, digest-verified'",
-    "'corpus': {'name': CORPUS_NAME, 'repo': CORPUS_REPO, 'revision': CORPUS_REVISION, 'release': CORPUS_RELEASE, 'license': CORPUS_LICENSE, 'text_columns': list(CORPUS_TEXT_COLUMNS), 'file': CORPUS_FILE, 'pinned_images': len(IMAGE_PINS)}",
+    "'corpus': {'name': CORPUS_NAME, 'repo': CORPUS_REPO, 'revision': CORPUS_REVISION, 'release': CORPUS_RELEASE, 'license': CORPUS_LICENSE, 'text_columns': list(CORPUS_TEXT_COLUMNS), 'file': CORPUS_FILE, 'pinned_images': len(IMAGE_PINS),",
     "'adapted_beats_frozen': adapted_beats_frozen",
     "'model_revision': MODEL_REVISION",
     "'model_license': MODEL_LICENSE",
@@ -103,7 +112,7 @@ MARKDOWN_MARKERS = (
     "**constant-caption baseline**",
     "**colour-nearest-neighbour baseline**",
     "**CIDEr-D**",
-    "**no dispersion estimate**",
+    "**paired bootstrap 95 % interval**",
     "OCR as a product (the model quotes text inside a caption",
     "**Weight-format note:**",
 )
@@ -134,10 +143,10 @@ FORBIDDEN_OUTSIDE_MODULE = (
 # ---------------------------------------------------------------------------
 # Shared checks. Everything below is source/structure validation only. Passing
 # these checks is NOT clean-runtime execution evidence under DIMER Notebook
-# Specification 2.2; see docs/release-verification.md for the release gate.
+# Specification 2.5; see docs/release-verification.md for the release gate.
 # ---------------------------------------------------------------------------
 
-NOTEBOOK_SPEC = "2.2"
+NOTEBOOK_SPEC = "2.5"
 ALLOWED_PROFILES = {"E2E", "ARTIFACT-INFERENCE", "TASK-INFERENCE", "MULTI-CAPABILITY", "SMOKE"}
 STATUS_TOKENS = ("Candidate", "Release-grade")
 PLACEHOLDER = re.compile(r"\b(TODO|TBD|FIXME)\b|Insert text here|Tooltip:", re.I)
@@ -212,7 +221,7 @@ COMMON_MARKDOWN_MARKERS = (
     "without the repository being",
     "It does **not** establish benchmark superiority",
     "## References",
-    f"- Repository model card: https://github.com/kurtvalcorza/{REPO_NAME}/blob/main/MODEL_CARD.md",
+    f"model card: https://github.com/kurtvalcorza/{REPO_NAME}/blob/main/MODEL_CARD.md",
 )
 # Patterns that must never appear in tutorial code (comment-stripped), in any cell.
 FORBIDDEN_PATTERNS = (
@@ -454,6 +463,13 @@ def _validate_notebook_structure(path: Path, notebook: dict) -> tuple[list[tuple
     spec = dimer.get("notebook_spec", dimer.get("notebook_spec_version"))
     _check(spec == NOTEBOOK_SPEC, f"{path.name}: metadata.dimer must declare notebook spec version '{NOTEBOOK_SPEC}'")
     _check(dimer.get("notebook_mode") in ("REFERENCE", "GUIDED", "WORKSHOP"), f"{path.name}: metadata.dimer.notebook_mode must declare a §3.3 pedagogical mode")
+    _check(dimer.get("notebook_kind") == "TUTORIAL", f"{path.name}: metadata.dimer.notebook_kind must declare the §3.7 kind TUTORIAL (KND1)")
+    nb_cells = notebook.get("cells", [])
+    first_code = next((i for i, c in enumerate(nb_cells) if c.get("cell_type") == "code"), len(nb_cells))
+    _check(
+        any(c.get("cell_type") == "markdown" and "".join(c.get("source", "")).startswith("> **⚠️ Notice.**") for c in nb_cells[:first_code]),
+        f"{path.name}: a use-notice blockquote must precede the first code cell (DOC17-DOC21)",
+    )
     _check(dimer.get("standalone") is True, f"{path.name}: metadata.dimer.standalone must be true (ST6)")
     generated = dimer.get("generated_from")
     _template = _load_tool("notebook_template").TEMPLATE
