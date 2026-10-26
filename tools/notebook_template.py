@@ -244,15 +244,15 @@ TEMPLATE = {
                 "    if str(path).strip():\n"
                 "        source = Path(str(path).strip()).expanduser()\n"
                 "        if not source.is_file():\n"
-                "            raise FileNotFoundError(f'BYOD path {{str(source)!r}} does not exist or is not a file (relative paths start at {{os.getcwd()}}); give the path of one {{kind}}.')\n"
+                "            raise FileNotFoundError(f'{{str(source)}}: BYOD_PATH does not exist or is not a file (relative paths start at {{os.getcwd()}}); give the path of one {{kind}}.')\n"
                 "    else:\n"
                 "        try:\n"
                 "            from google.colab import files\n"
                 "        except ImportError:\n"
-                "            raise FileNotFoundError(f'BYOD is on but its path field is empty, and the upload dialog exists only in Google Colab: copy the {{kind}} into this runtime (or attach it as a Kaggle dataset) and set the path field.') from None\n"
+                "            raise FileNotFoundError(f'(no file): BYOD is on but its path field is empty, and the upload dialog exists only in Google Colab: copy the {{kind}} into this runtime (or attach it as a Kaggle dataset) and set the path field.') from None\n"
                 "        uploaded = files.upload()\n"
                 "        if len(uploaded) != 1:\n"
-                "            raise ValueError(f'Upload exactly one {{kind}} (received {{len(uploaded)}} files; a cancelled dialog sends none). Run this cell again.')\n"
+                "            raise ValueError(f'{{\", \".join(uploaded) or \"(no file)\"}}: Upload exactly one {{kind}} (received {{len(uploaded)}} files; a cancelled dialog sends none). Run this cell again.')\n"
                 "        name, payload = next(iter(uploaded.items()))\n"
                 "        source = Path('work') / Path(name).name\n"
                 "        source.parent.mkdir(parents=True, exist_ok=True)\n"
@@ -308,7 +308,10 @@ TEMPLATE = {
                 "if USE_BYOD:\n"
                 "    try:\n"
                 "        file_name, records, splits = load_byod_splits()\n"
-                "        dataset_manifests = {{name: validate_dataset(part) for name, part in splits.items()}}\n"
+                "        try:\n"
+                "            dataset_manifests = {{name: validate_dataset(part) for name, part in splits.items()}}\n"
+                "        except (TypeError, ValueError) as exc:  # validate_dataset names the record and rule; the zip is named here\n"
+                "            raise ValueError(f'{{file_name}}: {{exc}}') from None\n"
                 "    except (FileNotFoundError, ValueError, TypeError) as exc:  # a refused input; other errors keep their traceback\n"
                 "        refusal = str(exc)\n"
                 "        for stale_name in ('splits', 'train_records', 'val_records', 'test_records', 'dataset_manifests', 'disjoint', 'categories', 'fresh_records', 'fresh_report', 'frozen_test', 'adapt_result', 'adapted_test', 'comparison'):\n"
@@ -317,7 +320,7 @@ TEMPLATE = {
                 "        RUN_STATE = {{'valid': False, 'reason': 'BYOD input refused'}}\n"
                 "        invalid_marker.write_text(json.dumps({{'run_valid': False, 'refusal': refusal, 'time': time.strftime('%Y-%m-%d %H:%M:%S'), 'earlier_outputs_kept_not_results_for_this_input': kept}}, indent=2), encoding='utf-8')\n"
                 "        note = f' Earlier files in outputs/ were kept but are not results for this input (listed in {{invalid_marker}}).' if kept else ''\n"
-                "        raise RunInvalidated(f'BYOD refused: {{refusal}}{{note}} Nothing was scored; fix the named file or rule and run this cell again.') from None\n"
+                "        raise RunInvalidated(f'Refused: {{refusal}}{{note}} Nothing was scored; fix the named file or rule and run this cell again.') from None\n"
                 "    data_source = 'BYOD (' + file_name + ')'\n"
                 "    raw_rows = {{'byod': len(records)}}\n"
                 "else:\n"
@@ -999,7 +1002,7 @@ TEMPLATE = {
         '- **"This run is invalidated (BYOD input refused)"** — a later section after a refused BYOD zip: fix the zip named in the Section 4 message and run Section 4 again.\n'
         '- **Section 6 says the frozen model is not above the constant caption, or `adapted_beats_frozen` is `False`** — a finding worth recording on the default path; on your own data read the baselines and caption lengths first.\n'
         '- **BYOD: "BYOD path … does not exist" / "the upload dialog exists only in Google Colab" / "Upload exactly one …"** — set `BYOD_PATH` to the zip in the runtime (it works on Kaggle and Jupyter); on Colab an empty path opens the dialog, and a cancelled dialog stops with that message.\n'
-        '- **BYOD refused: "the zip must hold exactly one records.jsonl", "exceed the BYOD ceiling", "points outside the zip", "hold fewer than MIN_RECORDS" or a `validate_dataset` refusal** — one records file at the root or in one folder, image paths relative to it (folders are kept), at most 5,002 members and 2 GiB extracted, at least 50 records at one per image; refusals name the zip, the record index and the rule.\n'
+        '- **Refused: <zip>: "the zip must hold exactly one records.jsonl", "exceed the BYOD ceiling", "points outside the zip", "hold fewer than MIN_RECORDS" or a `validate_dataset` refusal** — one records file at the root or in one folder, image paths relative to it (folders are kept), at most 5,002 members and 2 GiB extracted, at least 50 records at one per image; refusals name the zip, the record index and the rule.\n'
         '- **A re-run scores "frozen" numbers that differ from the first pass** — Sections 6 and 7 reload the frozen pipeline whenever `pipe` carries an adapter (they print `reloaded_frozen_pipeline`), so run the Section 6 cell again; `frozen_test["adapted"]` must be `False`.\n\n'
         '## Glossary\n\n'
         '- **OCR-free captioning** — generating a caption that quotes visible text, read from pixels without a separate OCR step.\n'
