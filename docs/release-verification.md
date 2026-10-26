@@ -155,6 +155,8 @@ The rows below are the earlier inference-only notebook's runs; they are history 
 
 ## Current status
 
+The current blob `69e51578` (code commit `728a24c`) shows a refused BYOD input as exactly one `Refused: <file>: <reason>` line (previously a differently prefixed line), with no traceback, and stops Run all at that cell; genuine failures keep their traceback (NOTEBOOK_SPEC DAT19/DAT20). Its hosted Colab T4 runs (the default path and a scripted refusal, `USE_BYOD=True;BYOD_PATH='/etc/hostname'`) are pending, and the hosted runs of earlier blobs, including `7e7092226aba`, are history for it (REL14).
+
 ### Row-64 review fix (2026-10-17): pre-registered learning-rate grid and fresh test
 
 - **What touched the old test split.** The default recipe was carried over from the BLIP captioning row, which chose it
