@@ -479,7 +479,7 @@ def test_t64_m6_a_refused_byod_zip_stops_without_a_traceback_and_invalidates_the
         exec(compile(_section4_byod_block(nb), "<section 4>", "exec"), ns)
     exc = caught.value
     assert type(exc).__name__ == "RunInvalidated" and getattr(exc, "dimer_stop", False) is True
-    assert exc._render_traceback_() == [str(exc)] and str(exc).startswith("BYOD refused: mine.zip: split(s)")
+    assert exc._render_traceback_() == [str(exc)] and str(exc).startswith("Refused: mine.zip: split(s)")
     marker = json.loads((outputs / f"{STEM}_run_invalidated.json").read_text(encoding="utf-8"))
     assert marker["run_valid"] is False and marker["earlier_outputs_kept_not_results_for_this_input"] == [
         f"{STEM}_result.json"
