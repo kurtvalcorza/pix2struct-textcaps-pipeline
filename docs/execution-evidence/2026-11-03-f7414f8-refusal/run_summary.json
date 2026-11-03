@@ -1,0 +1,71 @@
+{
+  "repo": "pix2struct-textcaps-pipeline",
+  "sha": "f7414f8cc1d385524ea27d97fd58916f86bbf088",
+  "notebook": "tutorials/pix2struct_textcaps_colab.ipynb",
+  "blob": "c26260e7169b0f9b92e7a2d8073cc7b06b8fd555",
+  "gpu": "T4",
+  "session": "suite-pix2struct-f7414f8-ae8b",
+  "started_utc": "2026-11-03T04:01:08+00:00",
+  "runner": "Colab CLI `colab exec -f` on a fresh session (not a browser Run all)",
+  "overrides": [
+    {
+      "name": "USE_BYOD",
+      "from": "False",
+      "to": "True"
+    },
+    {
+      "name": "BYOD_PATH",
+      "from": "''",
+      "to": "'/etc/hostname'"
+    }
+  ],
+  "run_copy_blob": "92c147b1b16e1121fe30830c25b7c2af53c5edfe",
+  "run_copy_sha256": "c223b6b9d6f72595cef94b5091fb4cf4a5580b580659512909d9aa73bf92d283",
+  "run_copy_note": "refusal run: the run copy is the committed notebook with the listed assignment overrides, cut immediately after the refusal cell and re-serialised (nbformat layout); input_unchanged compares against that copy",
+  "truncated_after_cell": "pix2struct_textcaps-17",
+  "refusal_cell_ref": "pix2struct_textcaps-17",
+  "refusal_cell_index": 7,
+  "cells_dropped": 19,
+  "code_cells_dropped": 6,
+  "original_sha256": "4a7ff2c4eb1f42cd0d2f499cfe4cb3fe4f388a37d89c83a39cee51e7a0fc883a",
+  "status": "[suite-pix2struct-f7414f8-ae8b] gpu-t4-s-usw1b3-2nfejpo7dyfak | Hardware: T4 | Shape: Standard | Variant: GPU | Status: IDLE",
+  "exec_exit_code": 0,
+  "stopped": true,
+  "stop_verified": true,
+  "wall_s": 123.7,
+  "input_unchanged": true,
+  "executed_file": "pix2struct_textcaps_colab_f7414f8_colab-cli-t4_output.ipynb",
+  "log_cells": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "log_total": 7,
+  "code_cells": 7,
+  "executed_cells": 4,
+  "errors": [
+    {
+      "cell": "pix2struct_textcaps-17",
+      "ename": "IsolatedCellStop",
+      "evalue": "Refused: hostname: expected a zip of images plus records.jsonl ending in .zip. Nothing was scored; fix the named file or rule and run this cell again."
+    }
+  ],
+  "execution_counts": [],
+  "sequential": null,
+  "executed_sha256": "db0286b5d4249dfb3cddccc950c7e2390bf95765ebd1c5a13e859110f0602ea6",
+  "log_sequential_complete": true,
+  "mode": "expect_refusal",
+  "refusal_line": "Refused: hostname: expected a zip of images plus records.jsonl ending in .zip. Nothing was scored; fix the named file or rule and run this cell again.",
+  "halting_cell_index": 7,
+  "halting_cell_id": "pix2struct_textcaps-17",
+  "error_cells": [
+    7
+  ],
+  "refusal_fail_reasons": [],
+  "refusal_ok": true,
+  "verdict": "PASS"
+}
